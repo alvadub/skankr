@@ -26,4 +26,4 @@ The design target is a musician-facing tracker where chord symbols are the prima
 
 ## Extracted Source Material
 
-The implementation was extracted from a journal workspace into this standalone repository. The relevant journal plan and summary are preserved under `.journal/2026-04-07/`.
+The implementation was extracted from a journal workspace into this standalone repository. Local journal and memory files are linked with `j link /Users/alvaro/Workspace/skanker skanker` and intentionally ignored by git; this keeps the public repository focused on app code and docs while preserving private working notes in the central journal.

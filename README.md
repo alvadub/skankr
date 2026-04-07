@@ -37,7 +37,7 @@ node -e "const fs=require('fs'); const html=fs.readFileSync('index.html','utf8')
 
 ## Project Context
 
-- Journal summary: `.journal/2026-04-07/summary.md`
-- Original implementation plan: `.journal/2026-04-07/plans/01-skanking-sequencer-prototype.md`
-- Extracted memory: `memory/MEMORY.md`
+- Local journal and memory are linked with `j link /Users/alvaro/Workspace/skanker skanker`.
+- `.journal/` and `memory/` are intentionally ignored so the public repo stays focused on app code and docs.
+- Extracted context: `docs/CONTEXT.md`
 - Roadmap: `docs/ROADMAP.md`
