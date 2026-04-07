@@ -186,7 +186,7 @@
 
       .chord-cell {
         padding: 0.55rem;
-        cursor: text;
+        cursor: grab;
       }
 
       .chord-cell.beat,
@@ -198,6 +198,21 @@
       .drum-cell.playing {
         outline: 2px solid #fff;
         outline-offset: 2px;
+      }
+
+      .chord-cell.dragging,
+      .drum-cell.dragging {
+        opacity: 0.55;
+      }
+
+      .chord-cell.drag-over,
+      .drum-cell.drag-over {
+        border-color: var(--rhythm);
+        box-shadow: inset 0 0 0 2px rgba(245, 184, 61, 0.32);
+      }
+
+      .chord-input {
+        cursor: text;
       }
 
       .step-number {
@@ -277,7 +292,7 @@
 
       .drum-cell {
         min-height: 2.4rem;
-        cursor: pointer;
+        cursor: grab;
       }
 
       .drum-cell.on {
@@ -546,6 +561,8 @@
       let nextStepIndex = 0;
       let nextNoteTime = 0;
       let harmonyVoice = null;
+      let draggedStep = null;
+      let suppressNextStepClick = false;
 
       const el = {
         status: document.getElementById("status"),
@@ -1010,6 +1027,60 @@
         renderAll();
       }
 
+      function moveArrayItem(items, fromIndex, toIndex) {
+        if (fromIndex === toIndex) return;
+        const [item] = items.splice(fromIndex, 1);
+        items.splice(toIndex, 0, item);
+      }
+
+      function moveChordStep(fromStep, toStep) {
+        const scene = currentScene();
+        moveArrayItem(scene.rhythm, fromStep, toStep);
+        moveArrayItem(scene.harmony, fromStep, toStep);
+        renderAll();
+      }
+
+      function moveDrumStep(trackKey, fromStep, toStep) {
+        moveArrayItem(currentScene().drums[trackKey], fromStep, toStep);
+        renderDrumGrid();
+      }
+
+      function bindStepDrag(cell, dragData, onMove) {
+        cell.draggable = true;
+        cell.addEventListener("dragstart", (event) => {
+          if (event.target.closest("input")) {
+            event.preventDefault();
+            return;
+          }
+          draggedStep = dragData;
+          cell.classList.add("dragging");
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", `${dragData.type}:${dragData.trackKey || "chords"}:${dragData.step}`);
+        });
+        cell.addEventListener("dragend", () => {
+          draggedStep = null;
+          document.querySelectorAll(".dragging, .drag-over").forEach((node) => node.classList.remove("dragging", "drag-over"));
+        });
+        cell.addEventListener("dragover", (event) => {
+          if (!draggedStep || draggedStep.type !== dragData.type || draggedStep.trackKey !== dragData.trackKey) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          cell.classList.add("drag-over");
+        });
+        cell.addEventListener("dragleave", () => {
+          cell.classList.remove("drag-over");
+        });
+        cell.addEventListener("drop", (event) => {
+          event.preventDefault();
+          cell.classList.remove("drag-over");
+          if (!draggedStep || draggedStep.type !== dragData.type || draggedStep.trackKey !== dragData.trackKey) return;
+          onMove(draggedStep.step, dragData.step);
+          draggedStep = null;
+          suppressNextStepClick = true;
+          window.setTimeout(() => suppressNextStepClick = false, 0);
+        });
+      }
+
       function usedChordNames() {
         const names = new Set(Object.keys(state.chordCatalog));
         state.scenes.forEach((scene) => {
@@ -1134,6 +1205,7 @@
             </label>
           `;
           cell.querySelectorAll(".chord-input").forEach((input) => bindChordInput(input, step));
+          bindStepDrag(cell, { type: "chords", trackKey: "", step }, moveChordStep);
           el.chordGrid.append(cell);
         }
       }
@@ -1201,7 +1273,9 @@
             cell.classList.toggle("on", scene.drums[track.key][step]);
             cell.classList.toggle("playing", step === state.playhead);
             cell.ariaLabel = `${track.label} step ${step + 1}`;
+            bindStepDrag(cell, { type: "drums", trackKey: track.key, step }, (fromStep, toStep) => moveDrumStep(track.key, fromStep, toStep));
             cell.addEventListener("click", () => {
+              if (suppressNextStepClick) return;
               scene.drums[track.key][step] = !scene.drums[track.key][step];
               renderDrumGrid();
             });

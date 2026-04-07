@@ -26,18 +26,3 @@ Open `index.html` directly in a desktop browser, press `Play`, and edit the two-
 4. Use inline voicings like `Cm=g3,c4,eb4` when you want a one-off exact voicing.
 5. Add drum hits by clicking the drum grid.
 6. Clone or delete scenes to compare loop ideas.
-
-## Validation
-
-Run this from the repository root:
-
-```bash
-node -e "const fs=require('fs'); const html=fs.readFileSync('index.html','utf8'); const m=html.match(/<script>([\s\S]*)<\/script>/); if(!m) throw new Error('inline script not found'); new Function(m[1]); console.log('inline script parses');"
-```
-
-## Project Context
-
-- Local journal and memory are linked with `j link /Users/alvaro/Workspace/skanker skanker`.
-- `.journal/` and `memory/` are intentionally ignored so the public repo stays focused on app code and docs.
-- Extracted context: `docs/CONTEXT.md`
-- Roadmap: `docs/ROADMAP.md`
