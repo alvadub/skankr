@@ -337,6 +337,10 @@
         grid-template-rows: auto minmax(0, 1fr) auto auto;
       }
 
+      .sound-dialog[open] {
+        grid-template-rows: auto minmax(0, 1fr) auto;
+      }
+
       .catalog-dialog::backdrop {
         background: rgba(0, 0, 0, 0.68);
       }
@@ -356,6 +360,39 @@
         margin: 1rem 0;
         overflow-y: auto;
         padding-right: 0.25rem;
+      }
+
+      .sound-rows {
+        align-content: start;
+        display: grid;
+        gap: 0.85rem;
+        margin: 1rem 0;
+        overflow-y: auto;
+      }
+
+      .sound-rows label {
+        display: grid;
+        gap: 0.35rem;
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .sound-rows select {
+        width: 100%;
+      }
+
+      .sound-fieldset {
+        display: grid;
+        gap: 0.85rem;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+
+      .sound-fieldset legend {
+        margin-bottom: 0.35rem;
+        color: var(--text);
+        font-weight: 700;
       }
 
       .catalog-row,
@@ -452,11 +489,6 @@
           <input id="strum" type="range" min="0.05" max="0.25" step="0.01" value="0.12" />
           <label for="pad-attack">Pad Attack</label>
           <input id="pad-attack" type="range" min="0.02" max="0.4" step="0.01" value="0.08" />
-          <label for="rhythm-engine">Rhythm Engine</label>
-          <select id="rhythm-engine">
-            <option value="internal">Internal Synth</option>
-            <option value="webaudiofont-piano">WebAudioFont Piano</option>
-          </select>
         </div>
         <div class="volumes" aria-label="Volumes">
           <label>Master <input id="master-volume" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
@@ -476,7 +508,10 @@
             <h2>Chord Grid</h2>
             <p>Edit Rhythm and Harmony directly in the stacked fields. Empty or invalid entries stay editable and do not play.</p>
           </div>
-          <button id="catalog-open">Chord Catalog</button>
+          <div class="control-group">
+            <button id="sound-open">Sound Catalog</button>
+            <button id="catalog-open">Chord Catalog</button>
+          </div>
         </div>
         <div id="chord-grid" class="step-grid" aria-label="Chord steps"></div>
         <p class="hint">Use chord symbols in the grid, then configure their note lists in the catalog. Inline voicings like Cm=g3,c4,eb4 still work.</p>
@@ -507,6 +542,28 @@
         <button id="catalog-save">Save Catalog</button>
       </div>
       <p class="hint">Example: chord <strong>Cm</strong>, notes <strong>g3,c4,eb4</strong>. Invalid or duplicate catalog rows are ignored until fixed.</p>
+    </dialog>
+
+    <dialog id="sound-dialog" class="catalog-dialog sound-dialog">
+      <div class="catalog-head">
+        <div>
+          <h2>Sound Catalog</h2>
+          <p>Pick the sound source for rhythm chops, sustained harmony, and drum pads. WebAudioFont sounds load on first playback and fall back to the internal synth if unavailable.</p>
+        </div>
+        <button id="sound-close" aria-label="Close sound catalog">Close</button>
+      </div>
+      <div class="sound-rows">
+        <label>Rhythm <select id="rhythm-sound"></select></label>
+        <label>Harmony <select id="harmony-sound"></select></label>
+        <fieldset class="sound-fieldset">
+          <legend>Drums</legend>
+          <label>Kick <select data-drum-sound="kick"></select></label>
+          <label>Snare <select data-drum-sound="snare"></select></label>
+          <label>Hi-hat <select data-drum-sound="hihat"></select></label>
+          <label>Open HH <select data-drum-sound="openhat"></select></label>
+        </fieldset>
+      </div>
+      <p class="hint">Current choices are saved in your local preset. WebAudioFont options require a network connection the first time they load.</p>
     </dialog>
 
     <script>
@@ -552,14 +609,48 @@
       };
       const PRESET_NAME = "default";
       const STORAGE_KEY = `skanker:preset:${PRESET_NAME}:v1`;
-      const RHYTHM_ENGINES = {
+      const WEBAUDIOFONT_PLAYER_URL = "https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js";
+      const SOUND_CATALOG = {
         internal: { label: "Internal Synth" },
-        "webaudiofont-piano": {
-          label: "WebAudioFont Piano",
+        piano: {
+          label: "Acoustic Grand Piano",
           playerUrl: "https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js",
           presetUrl: "https://surikov.github.io/webaudiofontdata/sound/0000_Aspirin_sf2_file.js",
           presetName: "_tone_0000_Aspirin_sf2_file",
         },
+        guitar: {
+          label: "Clean Electric Guitar",
+          playerUrl: "https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js",
+          presetUrl: "https://surikov.github.io/webaudiofontdata/sound/0270_SoundBlasterOld_sf2.js",
+          presetName: "_tone_0270_SoundBlasterOld_sf2",
+        },
+        strings: {
+          label: "String Ensemble",
+          playerUrl: "https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js",
+          presetUrl: "https://surikov.github.io/webaudiofontdata/sound/0480_SBLive_sf2.js",
+          presetName: "_tone_0480_SBLive_sf2",
+        },
+      };
+      const SOUND_CHOICES = {
+        rhythm: ["internal", "guitar", "piano", "strings"],
+        harmony: ["internal", "strings", "piano", "guitar"],
+      };
+      const DRUM_KIT_CATALOG = {
+        internal: { label: "Internal Drums" },
+        standard: { label: "WebAudioFont Standard Kit", suffix: "0_FluidR3_GM_sf2_file" },
+        room: { label: "WebAudioFont Room Kit", suffix: "8_FluidR3_GM_sf2_file" },
+        power: { label: "WebAudioFont Power Kit", suffix: "16_FluidR3_GM_sf2_file" },
+        electronic: { label: "WebAudioFont Electronic Kit", suffix: "20_FluidR3_GM_sf2_file" },
+        tr808: { label: "WebAudioFont TR-808 Kit", suffix: "21_FluidR3_GM_sf2_file" },
+        jazz: { label: "WebAudioFont Jazz Kit", suffix: "22_FluidR3_GM_sf2_file" },
+        brush: { label: "WebAudioFont Brush Kit", suffix: "27_FluidR3_GM_sf2_file" },
+        orchestra: { label: "WebAudioFont Orchestra Kit", suffix: "30_FluidR3_GM_sf2_file" },
+      };
+      const DRUM_MIDI = {
+        kick: 36,
+        snare: 38,
+        hihat: 42,
+        openhat: 46,
       };
 
       const state = {
@@ -570,7 +661,11 @@
         isPlaying: false,
         strumLength: 0.12,
         padAttack: 0.08,
-        rhythmEngine: "internal",
+        sounds: {
+          rhythm: "internal",
+          harmony: "internal",
+          drums: { kick: "internal", snare: "internal", hihat: "internal", openhat: "internal" },
+        },
         volumes: { master: 0.8, rhythm: 0.55, harmony: 0.35, drums: 0.75 },
         chordCatalog: { ...DEFAULT_CHORD_CATALOG },
         scenes: Array.from({ length: 4 }, (_, index) => createScene(index)),
@@ -588,8 +683,8 @@
       let draggedStep = null;
       let suppressNextStepClick = false;
       let webAudioFontPlayer = null;
-      let webAudioFontPreset = null;
-      let webAudioFontLoading = null;
+      const webAudioFontPresets = new Map();
+      const webAudioFontLoading = new Map();
 
       const el = {
         status: document.getElementById("status"),
@@ -600,7 +695,9 @@
         bpmUp: document.getElementById("bpm-up"),
         strum: document.getElementById("strum"),
         padAttack: document.getElementById("pad-attack"),
-        rhythmEngine: document.getElementById("rhythm-engine"),
+        rhythmSound: document.getElementById("rhythm-sound"),
+        harmonySound: document.getElementById("harmony-sound"),
+        drumSounds: Object.fromEntries([...document.querySelectorAll("[data-drum-sound]")].map((select) => [select.dataset.drumSound, select])),
         sceneTabs: document.getElementById("scene-tabs"),
         chordGrid: document.getElementById("chord-grid"),
         drumGrid: document.getElementById("drum-grid"),
@@ -608,6 +705,9 @@
         rhythmVolume: document.getElementById("rhythm-volume"),
         harmonyVolume: document.getElementById("harmony-volume"),
         drumVolume: document.getElementById("drum-volume"),
+        soundOpen: document.getElementById("sound-open"),
+        soundDialog: document.getElementById("sound-dialog"),
+        soundClose: document.getElementById("sound-close"),
         catalogOpen: document.getElementById("catalog-open"),
         catalogDialog: document.getElementById("catalog-dialog"),
         catalogRows: document.getElementById("catalog-rows"),
@@ -796,6 +896,33 @@
         drumGain.gain.setTargetAtTime(state.volumes.drums, time, 0.01);
       }
 
+      function drumSoundDefinition(kitKey, trackKey) {
+        const kit = DRUM_KIT_CATALOG[kitKey];
+        const midi = DRUM_MIDI[trackKey];
+        if (!kit?.suffix || !midi) return null;
+        return {
+          label: `${kit.label} ${trackKey}`,
+          playerUrl: WEBAUDIOFONT_PLAYER_URL,
+          presetUrl: `https://surikov.github.io/webaudiofontdata/sound/128${midi}_${kit.suffix}.js`,
+          presetName: `_drum_${midi}_${kit.suffix}`,
+          midi,
+        };
+      }
+
+      function normalizeDrumSounds(rawDrums, fallback = state.sounds.drums) {
+        if (typeof rawDrums === "string") {
+          const kit = Object.prototype.hasOwnProperty.call(DRUM_KIT_CATALOG, rawDrums) ? rawDrums : "internal";
+          return Object.fromEntries(TRACKS.map((track) => [track.key, kit]));
+        }
+        const source = rawDrums && typeof rawDrums === "object" ? rawDrums : {};
+        return Object.fromEntries(TRACKS.map((track) => [
+          track.key,
+          Object.prototype.hasOwnProperty.call(DRUM_KIT_CATALOG, source[track.key])
+            ? source[track.key]
+            : fallback[track.key],
+        ]));
+      }
+
       function loadScriptOnce(src) {
         const existing = document.querySelector(`script[src="${src}"]`);
         if (existing) {
@@ -820,45 +947,58 @@
         });
       }
 
-      function ensureWebAudioFont() {
-        if (webAudioFontPreset) return Promise.resolve(webAudioFontPreset);
-        if (webAudioFontLoading) return webAudioFontLoading;
+      function ensureWebAudioFontPreset(sound) {
+        if (!sound?.playerUrl) return Promise.resolve(null);
+        if (webAudioFontPresets.has(sound.presetName)) return Promise.resolve(webAudioFontPresets.get(sound.presetName));
+        if (webAudioFontLoading.has(sound.presetName)) return webAudioFontLoading.get(sound.presetName);
 
-        const engine = RHYTHM_ENGINES[state.rhythmEngine];
-        if (!engine?.playerUrl) return Promise.resolve(null);
-
-        webAudioFontLoading = loadScriptOnce(engine.playerUrl)
+        const loading = loadScriptOnce(sound.playerUrl)
           .then(() => {
             if (typeof window.WebAudioFontPlayer !== "function") throw new Error("WebAudioFontPlayer was not loaded");
             webAudioFontPlayer = webAudioFontPlayer || new window.WebAudioFontPlayer();
-            webAudioFontPlayer.loader.startLoad(audioContext, engine.presetUrl, engine.presetName);
+            webAudioFontPlayer.loader.startLoad(audioContext, sound.presetUrl, sound.presetName);
             return new Promise((resolve) => {
               webAudioFontPlayer.loader.waitLoad(() => {
-                webAudioFontPreset = window[engine.presetName];
-                resolve(webAudioFontPreset);
+                const preset = window[sound.presetName];
+                if (preset) webAudioFontPresets.set(sound.presetName, preset);
+                resolve(preset || null);
               });
             });
           })
           .catch((error) => {
-            console.warn("Could not load WebAudioFont rhythm engine", error);
-            state.rhythmEngine = "internal";
-            el.rhythmEngine.value = state.rhythmEngine;
+            console.warn(`Could not load ${sound.label}`, error);
             savePreset();
             return null;
           })
           .finally(() => {
-            webAudioFontLoading = null;
+            webAudioFontLoading.delete(sound.presetName);
           });
 
-        return webAudioFontLoading;
+        webAudioFontLoading.set(sound.presetName, loading);
+        return loading;
+      }
+
+      async function ensureSelectedSounds() {
+        const loading = [];
+        const rhythmSound = SOUND_CATALOG[state.sounds.rhythm];
+        const harmonySound = SOUND_CATALOG[state.sounds.harmony];
+        if (rhythmSound?.playerUrl) loading.push(ensureWebAudioFontPreset(rhythmSound));
+        if (harmonySound?.playerUrl) loading.push(ensureWebAudioFontPreset(harmonySound));
+        TRACKS.forEach((track) => {
+          const drumSound = drumSoundDefinition(state.sounds.drums[track.key], track.key);
+          if (drumSound) loading.push(ensureWebAudioFontPreset(drumSound));
+        });
+        await Promise.all(loading);
       }
 
       function playRhythm(chord, time) {
         const parsed = parseChord(chord, 55);
         if (!parsed || !audioContext) return;
 
-        if (state.rhythmEngine === "webaudiofont-piano" && webAudioFontPlayer && webAudioFontPreset) {
-          webAudioFontPlayer.queueChord(audioContext, rhythmGain, webAudioFontPreset, time, parsed.midi, state.strumLength, 0.8);
+        const sound = SOUND_CATALOG[state.sounds.rhythm];
+        const preset = sound?.presetName ? webAudioFontPresets.get(sound.presetName) : null;
+        if (webAudioFontPlayer && preset) {
+          webAudioFontPlayer.queueChord(audioContext, rhythmGain, preset, time, parsed.midi, state.strumLength, 0.8);
           return;
         }
 
@@ -884,6 +1024,17 @@
 
       function releaseHarmony(time) {
         if (!harmonyVoice) return;
+        if (harmonyVoice.envelopes) {
+          harmonyVoice.envelopes.forEach((envelope) => {
+            if (typeof envelope.cancel === "function") envelope.cancel(time);
+            else if (envelope.out) {
+              envelope.out.gain.cancelScheduledValues(time);
+              envelope.out.gain.setTargetAtTime(0.0001, time, 0.12);
+            }
+          });
+          harmonyVoice = null;
+          return;
+        }
         harmonyVoice.gain.gain.cancelScheduledValues(time);
         harmonyVoice.gain.gain.setTargetAtTime(0.0001, time, 0.12);
         harmonyVoice.oscillators.forEach((osc) => osc.stop(time + 0.45));
@@ -899,6 +1050,17 @@
         if (harmonyVoice && harmonyVoice.label === parsed.label) return;
 
         releaseHarmony(time);
+
+        const sound = SOUND_CATALOG[state.sounds.harmony];
+        const preset = sound?.presetName ? webAudioFontPresets.get(sound.presetName) : null;
+        if (webAudioFontPlayer && preset) {
+          harmonyVoice = {
+            label: parsed.label,
+            envelopes: webAudioFontPlayer.queueChord(audioContext, harmonyGain, preset, time, parsed.midi, 8, 0.38),
+          };
+          return;
+        }
+
         const gain = audioContext.createGain();
         gain.gain.setValueAtTime(0.0001, time);
         gain.gain.exponentialRampToValueAtTime(0.2 / parsed.frequencies.length, time + state.padAttack);
@@ -933,6 +1095,12 @@
       function playDrum(trackKey, time) {
         const scene = currentScene();
         const level = scene.trackVolumes[trackKey] ?? 0.7;
+        const drumSound = drumSoundDefinition(state.sounds.drums[trackKey], trackKey);
+        const drumPreset = drumSound?.presetName ? webAudioFontPresets.get(drumSound.presetName) : null;
+        if (webAudioFontPlayer && drumPreset) {
+          webAudioFontPlayer.queueWaveTable(audioContext, drumGain, drumPreset, time, drumSound.midi, 0.9, level);
+          return;
+        }
 
         if (trackKey === "kick") {
           const osc = audioContext.createOscillator();
@@ -1020,9 +1188,9 @@
       async function startPlayback() {
         ensureAudio();
         await audioContext.resume();
-        if (state.rhythmEngine === "webaudiofont-piano") {
-          el.status.textContent = "Loading WebAudioFont Piano...";
-          await ensureWebAudioFont();
+        if (state.sounds.rhythm !== "internal" || state.sounds.harmony !== "internal" || TRACKS.some((track) => state.sounds.drums[track.key] !== "internal")) {
+          el.status.textContent = "Loading selected sounds...";
+          await ensureSelectedSounds();
         }
         stopPlayback(false);
         state.isPlaying = true;
@@ -1089,7 +1257,7 @@
           currentScene: state.currentScene,
           strumLength: state.strumLength,
           padAttack: state.padAttack,
-          rhythmEngine: state.rhythmEngine,
+          sounds: { ...state.sounds },
           volumes: { ...state.volumes },
           chordCatalog: { ...state.chordCatalog },
           scenes: state.scenes.map((scene, index) => normalizeScene(scene, index)),
@@ -1115,9 +1283,15 @@
           state.currentScene = Math.trunc(clampNumber(preset.currentScene, 0, state.scenes.length - 1, 0));
           state.strumLength = clampNumber(preset.strumLength, 0.05, 0.25, state.strumLength);
           state.padAttack = clampNumber(preset.padAttack, 0.02, 0.4, state.padAttack);
-          state.rhythmEngine = Object.prototype.hasOwnProperty.call(RHYTHM_ENGINES, preset.rhythmEngine)
-            ? preset.rhythmEngine
-            : state.rhythmEngine;
+          state.sounds = {
+            rhythm: Object.prototype.hasOwnProperty.call(SOUND_CATALOG, preset.sounds?.rhythm)
+              ? preset.sounds.rhythm
+              : (preset.rhythmEngine === "webaudiofont-piano" ? "piano" : state.sounds.rhythm),
+            harmony: Object.prototype.hasOwnProperty.call(SOUND_CATALOG, preset.sounds?.harmony)
+              ? preset.sounds.harmony
+              : state.sounds.harmony,
+            drums: normalizeDrumSounds(preset.sounds?.drums),
+          };
           state.volumes = {
             master: clampNumber(preset.volumes?.master, 0, 1, state.volumes.master),
             rhythm: clampNumber(preset.volumes?.rhythm, 0, 1, state.volumes.rhythm),
@@ -1288,6 +1462,19 @@
 
       function closeCatalog() {
         el.catalogDialog.close();
+      }
+
+      function openSoundCatalog() {
+        renderSoundCatalog();
+        if (typeof el.soundDialog.showModal === "function") {
+          el.soundDialog.showModal();
+        } else {
+          el.soundDialog.setAttribute("open", "");
+        }
+      }
+
+      function closeSoundCatalog() {
+        el.soundDialog.close();
       }
 
       function renderCatalogRows(extraRows = []) {
@@ -1484,14 +1671,31 @@
         renderDrumGrid();
       }
 
+      function renderSoundOptions(select, options, currentValue) {
+        select.replaceChildren();
+        options.forEach(([key, sound]) => {
+          const option = document.createElement("option");
+          option.value = key;
+          option.textContent = sound.label;
+          select.append(option);
+        });
+        select.value = currentValue;
+      }
+
+      function renderSoundCatalog() {
+        renderSoundOptions(el.rhythmSound, SOUND_CHOICES.rhythm.map((key) => [key, SOUND_CATALOG[key]]), state.sounds.rhythm);
+        renderSoundOptions(el.harmonySound, SOUND_CHOICES.harmony.map((key) => [key, SOUND_CATALOG[key]]), state.sounds.harmony);
+        TRACKS.forEach((track) => renderSoundOptions(el.drumSounds[track.key], Object.entries(DRUM_KIT_CATALOG), state.sounds.drums[track.key]));
+      }
+
       function renderAll() {
+        renderSoundCatalog();
         renderScenes();
         renderChordGrid();
         renderDrumGrid();
         el.bpm.value = state.bpm;
         el.strum.value = state.strumLength;
         el.padAttack.value = state.padAttack;
-        el.rhythmEngine.value = state.rhythmEngine;
         el.masterVolume.value = state.volumes.master;
         el.rhythmVolume.value = state.volumes.rhythm;
         el.harmonyVolume.value = state.volumes.harmony;
@@ -1511,19 +1715,39 @@
         state.padAttack = Number(event.target.value);
         savePreset();
       });
-      el.rhythmEngine.addEventListener("change", async (event) => {
-        state.rhythmEngine = Object.prototype.hasOwnProperty.call(RHYTHM_ENGINES, event.target.value)
-          ? event.target.value
-          : "internal";
-        if (state.rhythmEngine !== "webaudiofont-piano") {
-          webAudioFontPreset = null;
-        } else if (audioContext) {
-          el.status.textContent = "Loading WebAudioFont Piano...";
-          await ensureWebAudioFont();
+      el.rhythmSound.addEventListener("change", async (event) => {
+        state.sounds.rhythm = Object.prototype.hasOwnProperty.call(SOUND_CATALOG, event.target.value) ? event.target.value : "internal";
+        if (audioContext && state.sounds.rhythm !== "internal") {
+          el.status.textContent = "Loading rhythm sound...";
+          await ensureWebAudioFontPreset(SOUND_CATALOG[state.sounds.rhythm]);
           if (!state.isPlaying) el.status.textContent = "Stopped";
         }
         savePreset();
         renderAll();
+      });
+      el.harmonySound.addEventListener("change", async (event) => {
+        state.sounds.harmony = Object.prototype.hasOwnProperty.call(SOUND_CATALOG, event.target.value) ? event.target.value : "internal";
+        if (audioContext && state.sounds.harmony !== "internal") {
+          el.status.textContent = "Loading harmony sound...";
+          await ensureWebAudioFontPreset(SOUND_CATALOG[state.sounds.harmony]);
+          if (!state.isPlaying) el.status.textContent = "Stopped";
+        }
+        releaseHarmony(audioContext?.currentTime || 0);
+        savePreset();
+        renderAll();
+      });
+      TRACKS.forEach((track) => {
+        el.drumSounds[track.key].addEventListener("change", async (event) => {
+          state.sounds.drums[track.key] = Object.prototype.hasOwnProperty.call(DRUM_KIT_CATALOG, event.target.value) ? event.target.value : "internal";
+          const drumSound = drumSoundDefinition(state.sounds.drums[track.key], track.key);
+          if (audioContext && drumSound) {
+            el.status.textContent = `Loading ${track.label} sound...`;
+            await ensureWebAudioFontPreset(drumSound);
+            if (!state.isPlaying) el.status.textContent = "Stopped";
+          }
+          savePreset();
+          renderAll();
+        });
       });
       el.masterVolume.addEventListener("input", (event) => {
         state.volumes.master = Number(event.target.value);
@@ -1545,6 +1769,9 @@
         applyVolumes();
         savePreset();
       });
+      el.soundOpen.addEventListener("click", openSoundCatalog);
+      el.soundClose.addEventListener("click", closeSoundCatalog);
+      el.soundDialog.addEventListener("cancel", closeSoundCatalog);
       el.catalogOpen.addEventListener("click", openCatalog);
       el.catalogClose.addEventListener("click", closeCatalog);
       el.catalogAdd.addEventListener("click", () => addCatalogRow());
