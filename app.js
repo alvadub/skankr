@@ -1,0 +1,3631 @@
+      const STEPS = 32;
+      const DRUM_STEPS = STEPS;
+      const CHORD_STEPS = STEPS;
+      const LOOP_STEPS = STEPS;
+      const SCENE_SLOTS = 10;
+      const BASS_TICKS_PER_STEP = 4;
+      const BASS_TICKS = STEPS * BASS_TICKS_PER_STEP;
+      const BASS_EDITOR_PARTS = 2;
+      const BASS_EDITOR_PART_TICKS = BASS_TICKS / BASS_EDITOR_PARTS;
+      const CHORD_EDITOR_PARTS = 2;
+      const CHORD_EDITOR_PART_STEPS = CHORD_STEPS / CHORD_EDITOR_PARTS;
+      const CHORD_EDITOR_LAYERS = [
+        { key: "rhythm", label: "Rhythm" },
+        { key: "harmony", label: "Harmony" },
+      ];
+      const TRACKS = [
+        { key: "kick", label: "Kick", volume: 0.9 },
+        { key: "snare", label: "Snare", volume: 0.75 },
+        { key: "hihat", label: "Hi-hat", volume: 0.45 },
+        { key: "openhat", label: "Open HH", volume: 0.55 },
+      ];
+
+      const ROOTS = {
+        C: 0, "C#": 1, Db: 1, D: 2, "D#": 3, Eb: 3, E: 4, F: 5,
+        "F#": 6, Gb: 6, G: 7, "G#": 8, Ab: 8, A: 9, "A#": 10, Bb: 10, B: 11,
+      };
+      const QUALITY_ALIASES = {
+        "": { name: "", intervals: [0, 4, 7] },
+        m: { name: "m", intervals: [0, 3, 7] },
+        min: { name: "m", intervals: [0, 3, 7] },
+        minor: { name: "m", intervals: [0, 3, 7] },
+        dim: { name: "dim", intervals: [0, 3, 6] },
+        aug: { name: "aug", intervals: [0, 4, 8] },
+        maj7: { name: "maj7", intervals: [0, 4, 7, 11] },
+        major7: { name: "maj7", intervals: [0, 4, 7, 11] },
+        M7: { name: "maj7", intervals: [0, 4, 7, 11] },
+        "7": { name: "7", intervals: [0, 4, 7, 10] },
+        m7: { name: "m7", intervals: [0, 3, 7, 10] },
+        min7: { name: "m7", intervals: [0, 3, 7, 10] },
+        dim7: { name: "dim7", intervals: [0, 3, 6, 9] },
+        m7b5: { name: "m7b5", intervals: [0, 3, 6, 10] },
+        min7b5: { name: "m7b5", intervals: [0, 3, 6, 10] },
+        sus2: { name: "sus2", intervals: [0, 2, 7] },
+        sus4: { name: "sus4", intervals: [0, 5, 7] },
+      };
+      const DEFAULT_CHORD_CATALOG = {
+        C: "c4,e4,g4",
+        F: "f4,a4,c5",
+        G: "g3,b3,d4",
+        C7: "c4,e4,g4,bb4",
+        F7: "f4,a4,c5,eb5",
+        G7: "g3,b3,d4,f4",
+        Cm: "c4,eb4,g4",
+      };
+      const PRESET_NAME = "default";
+      const STORAGE_KEY = `skanker:preset:${PRESET_NAME}:v1`;
+      const USER_DRUM_PRESETS_KEY = "skanker:drum-presets:v1";
+      const USER_CHORD_PRESETS_KEY = "skanker:chord-progressions:v1";
+      const WEBAUDIOFONT_PLAYER_URL = "https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js";
+      const SOUND_CATALOG = {
+        internal: { label: "Internal Synth" },
+        piano: {
+          label: "Acoustic Grand Piano",
+          playerUrl: "https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js",
+          presetUrl: "https://surikov.github.io/webaudiofontdata/sound/0000_Aspirin_sf2_file.js",
+          presetName: "_tone_0000_Aspirin_sf2_file",
+        },
+        guitar: {
+          label: "Clean Electric Guitar",
+          playerUrl: "https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js",
+          presetUrl: "https://surikov.github.io/webaudiofontdata/sound/0270_SoundBlasterOld_sf2.js",
+          presetName: "_tone_0270_SoundBlasterOld_sf2",
+        },
+        strings: {
+          label: "String Ensemble",
+          playerUrl: "https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js",
+          presetUrl: "https://surikov.github.io/webaudiofontdata/sound/0480_SBLive_sf2.js",
+          presetName: "_tone_0480_SBLive_sf2",
+        },
+      };
+      const SOUND_CHOICES = {
+        rhythm: ["internal", "guitar", "piano", "strings"],
+        harmony: ["internal", "strings", "piano", "guitar"],
+      };
+      const BASS_PRESETS = {
+        sub: { label: "Sub Sine", shape: "sine", filter: 420, glide: 0.04, release: 0.22 },
+        dub: { label: "Dub Triangle", shape: "triangle", filter: 520, glide: 0.08, release: 0.32 },
+        rubber: { label: "Rubber Saw", shape: "sawtooth", filter: 360, glide: 0.06, release: 0.18 },
+        square: { label: "Square Bass", shape: "square", filter: 640, glide: 0.03, release: 0.14 },
+        custom: { label: "Custom", shape: "sine", filter: 520, glide: 0.04, release: 0.2 },
+      };
+      const BASS_SHAPES = ["sine", "triangle", "sawtooth", "square"];
+      const BASS_KEYS = [
+        ["KeyA", 0], ["KeyW", 1], ["KeyS", 2], ["KeyE", 3], ["KeyD", 4], ["KeyF", 5],
+        ["KeyT", 6], ["KeyG", 7], ["KeyY", 8], ["KeyH", 9], ["KeyU", 10], ["KeyJ", 11], ["KeyK", 12],
+        ["KeyO", 13], ["KeyL", 14], ["KeyP", 15], ["Semicolon", 16],
+      ];
+      const BASS_KEY_MAP = new Map(BASS_KEYS);
+      const DRUM_KIT_CATALOG = {
+        internal: { label: "Internal Drums" },
+        standard: { label: "WebAudioFont Standard Kit", suffix: "0_FluidR3_GM_sf2_file" },
+        room: { label: "WebAudioFont Room Kit", suffix: "8_FluidR3_GM_sf2_file" },
+        power: { label: "WebAudioFont Power Kit", suffix: "16_FluidR3_GM_sf2_file" },
+        electronic: { label: "WebAudioFont Electronic Kit", suffix: "20_FluidR3_GM_sf2_file" },
+        tr808: { label: "WebAudioFont TR-808 Kit", suffix: "21_FluidR3_GM_sf2_file" },
+        jazz: { label: "WebAudioFont Jazz Kit", suffix: "22_FluidR3_GM_sf2_file" },
+        brush: { label: "WebAudioFont Brush Kit", suffix: "27_FluidR3_GM_sf2_file" },
+        orchestra: { label: "WebAudioFont Orchestra Kit", suffix: "30_FluidR3_GM_sf2_file" },
+      };
+      const DRUM_MIDI = {
+        kick: 36,
+        snare: 38,
+        hihat: 42,
+        openhat: 46,
+      };
+      const DRUM_NOTE_LABELS = {
+        kick: "c3",
+        snare: "d3",
+        hihat: "f#3",
+        openhat: "a#3",
+      };
+      const DRUM_PRESETS = {};
+
+      const state = {
+        bpm: 100,
+        currentScene: 0,
+        pendingScene: null,
+        loopActiveScene: false,
+        playhead: -1,
+        isPlaying: false,
+        strumLength: 0.12,
+        padAttack: 0.08,
+        drumPresetPanelOpen: false,
+        drumPresetGenre: "reggae",
+        activeDrumPreset: null,
+        userDrumPresets: [],
+        userDrumPresetExport: "",
+        chordPresetPanelOpen: false,
+        activeChordPreset: null,
+        userChordPresets: [],
+        userChordPresetExport: "",
+        sounds: {
+          rhythm: "internal",
+          harmony: "internal",
+          drums: { kick: "internal", snare: "internal", hihat: "internal", openhat: "internal" },
+        },
+        bass: {
+          enabled: false,
+          preset: "sub",
+          octave: 2,
+          volume: 0.65,
+          filter: 420,
+          glide: 0.04,
+          release: 0.22,
+          recording: false,
+          layers: [{ shape: "sine", detune: 0, gain: 1 }],
+        },
+        volumes: { master: 0.8, rhythm: 0.55, harmony: 0.35, drums: 0.75 },
+        chordCatalog: { ...DEFAULT_CHORD_CATALOG },
+        scenes: Array.from({ length: SCENE_SLOTS }, (_, index) => createScene(index)),
+      };
+
+      let audioContext;
+      let masterGain;
+      let rhythmGain;
+      let harmonyGain;
+      let drumGain;
+      let drumTrackGains;
+      let bassGain;
+      let schedulerTimer = null;
+      let nextStepIndex = 0;
+      let nextNoteTime = 0;
+      let currentStepStartTime = 0;
+      let lastEscapeAt = 0;
+      let harmonyVoice = null;
+      let draggedStep = null;
+      let draggedSceneIndex = null;
+      let suppressNextStepClick = false;
+      let webAudioFontPlayer = null;
+      let lastBassMidi = null;
+      const webAudioFontPresets = new Map();
+      const webAudioFontLoading = new Map();
+      const activeBassNotes = new Map();
+
+      const el = {
+        status: document.getElementById("status"),
+        play: document.getElementById("play"),
+        stop: document.getElementById("stop"),
+        bpm: document.getElementById("bpm"),
+        bpmDown: document.getElementById("bpm-down"),
+        bpmUp: document.getElementById("bpm-up"),
+        strum: document.getElementById("strum"),
+        padAttack: document.getElementById("pad-attack"),
+        rhythmSound: document.getElementById("rhythm-sound"),
+        harmonySound: document.getElementById("harmony-sound"),
+        drumSounds: Object.fromEntries([...document.querySelectorAll("[data-drum-sound]")].map((select) => [select.dataset.drumSound, select])),
+        bassToggle: document.getElementById("bass-toggle"),
+        bassRecordToggle: document.getElementById("bass-record-toggle"),
+        bassClear: document.getElementById("bass-clear"),
+        bassEditorDialog: document.getElementById("bass-editor-dialog"),
+        bassEditorClose: document.getElementById("bass-editor-close"),
+        chordEditorOpen: document.getElementById("chord-editor-open"),
+        chordEditorDialog: document.getElementById("chord-editor-dialog"),
+        chordEditorClose: document.getElementById("chord-editor-close"),
+        rhythmMute: document.getElementById("rhythm-mute"),
+        harmonyMute: document.getElementById("harmony-mute"),
+        bassPreset: document.getElementById("bass-preset"),
+        bassShape: document.getElementById("bass-shape"),
+        bassOctave: document.getElementById("bass-octave"),
+        bassVolume: document.getElementById("bass-volume"),
+        bassGlide: document.getElementById("bass-glide"),
+        bassRelease: document.getElementById("bass-release"),
+        sceneLoopToggle: document.getElementById("scene-loop-toggle"),
+        sceneTabs: document.getElementById("scene-tabs"),
+        chordGrid: document.getElementById("chord-grid"),
+        chordPresetsToggle: document.getElementById("chord-presets-toggle"),
+        chordPresetPanel: document.getElementById("chord-preset-panel"),
+        drumGrid: document.getElementById("drum-grid"),
+        drumPresetsToggle: document.getElementById("drum-presets-toggle"),
+        drumPresetPanel: document.getElementById("drum-preset-panel"),
+        masterVolume: document.getElementById("master-volume"),
+        rhythmVolume: document.getElementById("rhythm-volume"),
+        harmonyVolume: document.getElementById("harmony-volume"),
+        drumVolume: document.getElementById("drum-volume"),
+        soundOpen: document.getElementById("sound-open"),
+        soundDialog: document.getElementById("sound-dialog"),
+        soundClose: document.getElementById("sound-close"),
+        catalogOpen: document.getElementById("catalog-open"),
+        catalogDialog: document.getElementById("catalog-dialog"),
+        catalogRows: document.getElementById("catalog-rows"),
+        catalogAdd: document.getElementById("catalog-add"),
+        catalogSave: document.getElementById("catalog-save"),
+        catalogClose: document.getElementById("catalog-close"),
+        dubExport: document.getElementById("dub-export"),
+        dubImport: document.getElementById("dub-import"),
+        dubImportFile: document.getElementById("dub-import-file"),
+      };
+
+      function createScene(index) {
+        const scene = createBlankScene(index);
+
+        if (index === 0) {
+          scene.rhythm[4] = "C7";
+          scene.rhythm[12] = "F7";
+          scene.rhythm[20] = "G7";
+          scene.rhythm[28] = "F7";
+          scene.harmony[0] = "C";
+          scene.harmony[16] = "F";
+          for (let step = 0; step < DRUM_STEPS; step += 4) scene.drums.kick[step] = 1;
+          [8, 24].forEach((step) => scene.drums.snare[step] = 1);
+          for (let step = 2; step < DRUM_STEPS; step += 4) scene.drums.hihat[step] = 1;
+          [15, 31].forEach((step) => scene.drums.openhat[step] = 1);
+        }
+
+        return scene;
+      }
+
+      function createBlankScene(index) {
+        return {
+          name: `Scene ${index + 1}`,
+          rhythm: Array(CHORD_STEPS).fill(""),
+          harmony: Array(CHORD_STEPS).fill(""),
+          bass: [],
+          drums: Object.fromEntries(TRACKS.map((track) => [track.key, Array(DRUM_STEPS).fill(0)])),
+          mutes: {
+            rhythm: false,
+            harmony: false,
+            bass: false,
+            drums: Object.fromEntries(TRACKS.map((track) => [track.key, false])),
+          },
+          trackVolumes: Object.fromEntries(TRACKS.map((track) => [track.key, track.volume])),
+        };
+      }
+
+      function currentScene() {
+        return state.scenes[state.currentScene];
+      }
+
+      function escapeAttr(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function midiToHz(midi) {
+        return 440 * Math.pow(2, (midi - 69) / 12);
+      }
+
+      function canonicalRoot(rawRoot) {
+        const letter = rawRoot[0].toUpperCase();
+        const accidental = rawRoot.slice(1);
+        return `${letter}${accidental}`;
+      }
+
+      function normalizeQuality(rawQuality) {
+        return String(rawQuality || "")
+          .replace(/^maj$/i, "")
+          .replace(/^major$/i, "")
+          .replace(/^minor/i, "min")
+          .replace(/^min/i, "min");
+      }
+
+      function qualityFromToken(rawQuality) {
+        const normalizedQuality = normalizeQuality(rawQuality);
+        const qualityKey = Object.prototype.hasOwnProperty.call(QUALITY_ALIASES, rawQuality)
+          ? rawQuality
+          : Object.keys(QUALITY_ALIASES).find((key) => key.toLowerCase() === normalizedQuality.toLowerCase());
+        return QUALITY_ALIASES[qualityKey === undefined ? null : qualityKey] || null;
+      }
+
+      function parseChordToken(rawToken) {
+        const token = String(rawToken || "").trim();
+        if (!token || /\s/.test(token)) return null;
+        const parts = token.split("/");
+        if (parts.length > 2) return null;
+        const chordMatch = parts[0].match(/^([A-Ga-g](?:#|b)?)(.*)$/);
+        if (!chordMatch) return null;
+        const root = canonicalRoot(chordMatch[1]);
+        if (!(root in ROOTS)) return null;
+        const quality = qualityFromToken(chordMatch[2]);
+        if (!quality) return null;
+        let bass = null;
+        if (parts[1] !== undefined) {
+          const bassMatch = parts[1].match(/^([A-Ga-g](?:#|b)?)$/);
+          if (!bassMatch) return null;
+          bass = canonicalRoot(bassMatch[1]);
+          if (!(bass in ROOTS)) return null;
+        }
+        return {
+          root,
+          quality,
+          bass,
+          label: `${root}${quality.name}${bass ? `/${bass}` : ""}`,
+          baseLabel: `${root}${quality.name}`,
+        };
+      }
+
+      function chordName(rawChord) {
+        const cleanedChord = String(rawChord || "").split("=")[0].trim();
+        return parseChordToken(cleanedChord)?.label || cleanedChord;
+      }
+
+      function isInvalidCatalogName(rawName) {
+        const cleanedName = String(rawName || "").trim();
+        if (!cleanedName) return false;
+        return !parseChordToken(cleanedName);
+      }
+
+      function parseNoteName(rawNote) {
+        const match = String(rawNote || "").trim().match(/^([A-Ga-g](?:#|b)?)(-?\d+)$/);
+        if (!match) return null;
+        const root = canonicalRoot(match[1]);
+        if (!(root in ROOTS)) return null;
+        const octave = Number(match[2]);
+        const midi = (octave + 1) * 12 + ROOTS[root];
+        return { label: `${root.toLowerCase()}${octave}`, midi, frequency: midiToHz(midi) };
+      }
+
+      function parseNoteList(rawNotes) {
+        const notes = String(rawNotes || "").split(",").map(parseNoteName);
+        if (!notes.length || notes.some((note) => !note)) return null;
+        return notes;
+      }
+
+      function bassMidi(root, referenceMidi) {
+        let midi = Math.floor(referenceMidi / 12) * 12 + ROOTS[root];
+        while (midi > referenceMidi) midi -= 12;
+        return midi;
+      }
+
+      function parseChord(rawChord, baseMidi = 60) {
+        const raw = String(rawChord || "").trim();
+        if (!raw) return null;
+        const [chordPart, voicingPart] = raw.split("=").map((part) => part.trim());
+        const chordToken = parseChordToken(chordPart);
+        if (!chordToken) return null;
+        const key = chordToken.label;
+
+        if (voicingPart !== undefined) {
+          const notes = parseNoteList(voicingPart);
+          if (!notes) return null;
+          return {
+            label: `${key}=${notes.map((note) => note.label).join(",")}`,
+            midi: notes.map((note) => note.midi),
+            frequencies: notes.map((note) => note.frequency),
+          };
+        }
+
+        const catalogKey = state.chordCatalog[key] ? key : chordToken.baseLabel;
+        const catalogNotes = state.chordCatalog[catalogKey] ? parseNoteList(state.chordCatalog[catalogKey]) : null;
+        if (catalogNotes) {
+          const midi = catalogNotes.map((note) => note.midi);
+          if (chordToken.bass) midi.unshift(bassMidi(chordToken.bass, Math.min(...midi)));
+          return {
+            label: key,
+            midi,
+            frequencies: midi.map(midiToHz),
+          };
+        }
+
+        const rootMidi = baseMidi + ROOTS[chordToken.root];
+        const midi = chordToken.quality.intervals.map((interval) => rootMidi + interval);
+        if (chordToken.bass) midi.unshift(bassMidi(chordToken.bass, rootMidi));
+        return {
+          label: key,
+          midi,
+          frequencies: midi.map(midiToHz),
+        };
+      }
+
+      function ensureAudio() {
+        if (audioContext) return;
+        const Context = window.AudioContext || window.webkitAudioContext;
+        audioContext = new Context();
+        masterGain = audioContext.createGain();
+        rhythmGain = audioContext.createGain();
+        harmonyGain = audioContext.createGain();
+        drumGain = audioContext.createGain();
+        bassGain = audioContext.createGain();
+        drumTrackGains = Object.fromEntries(TRACKS.map((track) => {
+          const gain = audioContext.createGain();
+          gain.connect(drumGain);
+          return [track.key, gain];
+        }));
+        rhythmGain.connect(masterGain);
+        harmonyGain.connect(masterGain);
+        drumGain.connect(masterGain);
+        bassGain.connect(masterGain);
+        masterGain.connect(audioContext.destination);
+        applyVolumes();
+      }
+
+      function applyVolumes() {
+        if (!audioContext) return;
+        const time = audioContext.currentTime;
+        const scene = currentScene();
+        masterGain.gain.setTargetAtTime(state.volumes.master, time, 0.01);
+        rhythmGain.gain.setTargetAtTime(scene.mutes?.rhythm ? 0 : state.volumes.rhythm, time, 0.01);
+        harmonyGain.gain.setTargetAtTime(scene.mutes?.harmony ? 0 : state.volumes.harmony, time, 0.01);
+        drumGain.gain.setTargetAtTime(state.volumes.drums, time, 0.01);
+        bassGain.gain.setTargetAtTime(scene.mutes?.bass ? 0 : state.bass.volume, time, 0.01);
+        TRACKS.forEach((track) => {
+          drumTrackGains?.[track.key]?.gain.setTargetAtTime(scene.mutes?.drums?.[track.key] ? 0 : 1, time, 0.01);
+        });
+      }
+
+      function drumSoundDefinition(kitKey, trackKey) {
+        const kit = DRUM_KIT_CATALOG[kitKey];
+        const midi = DRUM_MIDI[trackKey];
+        if (!kit?.suffix || !midi) return null;
+        return {
+          label: `${kit.label} ${trackKey}`,
+          playerUrl: WEBAUDIOFONT_PLAYER_URL,
+          presetUrl: `https://surikov.github.io/webaudiofontdata/sound/128${midi}_${kit.suffix}.js`,
+          presetName: `_drum_${midi}_${kit.suffix}`,
+          midi,
+        };
+      }
+
+      function normalizeDrumSounds(rawDrums, fallback = state.sounds.drums) {
+        if (typeof rawDrums === "string") {
+          const kit = Object.prototype.hasOwnProperty.call(DRUM_KIT_CATALOG, rawDrums) ? rawDrums : "internal";
+          return Object.fromEntries(TRACKS.map((track) => [track.key, kit]));
+        }
+        const source = rawDrums && typeof rawDrums === "object" ? rawDrums : {};
+        return Object.fromEntries(TRACKS.map((track) => [
+          track.key,
+          Object.prototype.hasOwnProperty.call(DRUM_KIT_CATALOG, source[track.key])
+            ? source[track.key]
+            : fallback[track.key],
+        ]));
+      }
+
+      function loadScriptOnce(src) {
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) {
+          return existing.dataset.loaded === "true"
+            ? Promise.resolve()
+            : new Promise((resolve, reject) => {
+              existing.addEventListener("load", resolve, { once: true });
+              existing.addEventListener("error", reject, { once: true });
+            });
+        }
+
+        return new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = src;
+          script.async = true;
+          script.addEventListener("load", () => {
+            script.dataset.loaded = "true";
+            resolve();
+          }, { once: true });
+          script.addEventListener("error", reject, { once: true });
+          document.head.append(script);
+        });
+      }
+
+      function ensureWebAudioFontPreset(sound) {
+        if (!sound?.playerUrl) return Promise.resolve(null);
+        if (webAudioFontPresets.has(sound.presetName)) return Promise.resolve(webAudioFontPresets.get(sound.presetName));
+        if (webAudioFontLoading.has(sound.presetName)) return webAudioFontLoading.get(sound.presetName);
+
+        const loading = loadScriptOnce(sound.playerUrl)
+          .then(() => {
+            if (typeof window.WebAudioFontPlayer !== "function") throw new Error("WebAudioFontPlayer was not loaded");
+            webAudioFontPlayer = webAudioFontPlayer || new window.WebAudioFontPlayer();
+            webAudioFontPlayer.loader.startLoad(audioContext, sound.presetUrl, sound.presetName);
+            return new Promise((resolve) => {
+              webAudioFontPlayer.loader.waitLoad(() => {
+                const preset = window[sound.presetName];
+                if (preset) webAudioFontPresets.set(sound.presetName, preset);
+                resolve(preset || null);
+              });
+            });
+          })
+          .catch((error) => {
+            console.warn(`Could not load ${sound.label}`, error);
+            savePreset();
+            return null;
+          })
+          .finally(() => {
+            webAudioFontLoading.delete(sound.presetName);
+          });
+
+        webAudioFontLoading.set(sound.presetName, loading);
+        return loading;
+      }
+
+      async function ensureSelectedSounds() {
+        const loading = [];
+        const rhythmSound = SOUND_CATALOG[state.sounds.rhythm];
+        const harmonySound = SOUND_CATALOG[state.sounds.harmony];
+        if (rhythmSound?.playerUrl) loading.push(ensureWebAudioFontPreset(rhythmSound));
+        if (harmonySound?.playerUrl) loading.push(ensureWebAudioFontPreset(harmonySound));
+        TRACKS.forEach((track) => {
+          const drumSound = drumSoundDefinition(state.sounds.drums[track.key], track.key);
+          if (drumSound) loading.push(ensureWebAudioFontPreset(drumSound));
+        });
+        await Promise.all(loading);
+      }
+
+      function playRhythm(chord, time) {
+        const parsed = parseChord(chord, 55);
+        if (!parsed || !audioContext) return;
+
+        const sound = SOUND_CATALOG[state.sounds.rhythm];
+        const preset = sound?.presetName ? webAudioFontPresets.get(sound.presetName) : null;
+        if (webAudioFontPlayer && preset) {
+          webAudioFontPlayer.queueChord(audioContext, rhythmGain, preset, time, parsed.midi, state.strumLength, 0.8);
+          return;
+        }
+
+        const output = audioContext.createGain();
+        const filter = audioContext.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(1850, time);
+        output.gain.setValueAtTime(0.0001, time);
+        output.gain.exponentialRampToValueAtTime(0.55 / parsed.frequencies.length, time + 0.005);
+        output.gain.exponentialRampToValueAtTime(0.0001, time + state.strumLength);
+        output.connect(filter).connect(rhythmGain);
+
+        parsed.frequencies.forEach((frequency, index) => {
+          const osc = audioContext.createOscillator();
+          osc.type = index % 2 === 0 ? "sawtooth" : "square";
+          osc.frequency.setValueAtTime(frequency, time);
+          osc.detune.setValueAtTime((index - 1) * 4, time);
+          osc.connect(output);
+          osc.start(time);
+          osc.stop(time + state.strumLength + 0.03);
+        });
+      }
+
+      function releaseHarmony(time) {
+        if (!harmonyVoice) return;
+        if (harmonyVoice.envelopes) {
+          harmonyVoice.envelopes.forEach((envelope) => {
+            if (typeof envelope.cancel === "function") envelope.cancel(time);
+            else if (envelope.out) {
+              envelope.out.gain.cancelScheduledValues(time);
+              envelope.out.gain.setTargetAtTime(0.0001, time, 0.12);
+            }
+          });
+          harmonyVoice = null;
+          return;
+        }
+        harmonyVoice.gain.gain.cancelScheduledValues(time);
+        harmonyVoice.gain.gain.setTargetAtTime(0.0001, time, 0.12);
+        harmonyVoice.oscillators.forEach((osc) => osc.stop(time + 0.45));
+        harmonyVoice = null;
+      }
+
+      function playHarmony(chord, time) {
+        const parsed = parseChord(chord, 48);
+        if (!parsed || !audioContext) {
+          releaseHarmony(time);
+          return;
+        }
+        if (harmonyVoice && harmonyVoice.label === parsed.label) return;
+
+        releaseHarmony(time);
+
+        const sound = SOUND_CATALOG[state.sounds.harmony];
+        const preset = sound?.presetName ? webAudioFontPresets.get(sound.presetName) : null;
+        if (webAudioFontPlayer && preset) {
+          harmonyVoice = {
+            label: parsed.label,
+            envelopes: webAudioFontPlayer.queueChord(audioContext, harmonyGain, preset, time, parsed.midi, 8, 0.38),
+          };
+          return;
+        }
+
+        const gain = audioContext.createGain();
+        gain.gain.setValueAtTime(0.0001, time);
+        gain.gain.exponentialRampToValueAtTime(0.2 / parsed.frequencies.length, time + state.padAttack);
+        gain.connect(harmonyGain);
+
+        const oscillators = [];
+        parsed.frequencies.forEach((frequency) => {
+          ["sine", "triangle"].forEach((type, typeIndex) => {
+            const osc = audioContext.createOscillator();
+            osc.type = type;
+            osc.frequency.setValueAtTime(frequency, time);
+            osc.detune.setValueAtTime(typeIndex === 0 ? -3 : 3, time);
+            osc.connect(gain);
+            osc.start(time);
+            oscillators.push(osc);
+          });
+        });
+
+        harmonyVoice = { label: parsed.label, gain, oscillators };
+      }
+
+      function makeNoise(duration) {
+        const sampleRate = audioContext.sampleRate;
+        const buffer = audioContext.createBuffer(1, Math.ceil(sampleRate * duration), sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        return source;
+      }
+
+      function playDrum(trackKey, time, velocity = 1) {
+        const scene = currentScene();
+        const level = (scene.trackVolumes[trackKey] ?? 0.7) * (velocity >= 1 ? 1 : 0.28);
+        const output = drumTrackGains?.[trackKey] || drumGain;
+        const drumSound = drumSoundDefinition(state.sounds.drums[trackKey], trackKey);
+        const drumPreset = drumSound?.presetName ? webAudioFontPresets.get(drumSound.presetName) : null;
+        if (webAudioFontPlayer && drumPreset) {
+          webAudioFontPlayer.queueWaveTable(audioContext, output, drumPreset, time, drumSound.midi, 0.9, level);
+          return;
+        }
+
+        if (trackKey === "kick") {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(200, time);
+          osc.frequency.exponentialRampToValueAtTime(50, time + 0.14);
+          gain.gain.setValueAtTime(0.9 * level, time);
+          gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.38);
+          osc.connect(gain).connect(output);
+          osc.start(time);
+          osc.stop(time + 0.4);
+          return;
+        }
+
+        if (trackKey === "snare") {
+          const noise = makeNoise(0.2);
+          const noiseFilter = audioContext.createBiquadFilter();
+          const noiseGain = audioContext.createGain();
+          noiseFilter.type = "highpass";
+          noiseFilter.frequency.setValueAtTime(900, time);
+          noiseGain.gain.setValueAtTime(0.55 * level, time);
+          noiseGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.18);
+          noise.connect(noiseFilter).connect(noiseGain).connect(output);
+          noise.start(time);
+          noise.stop(time + 0.2);
+
+          const tone = audioContext.createOscillator();
+          const toneGain = audioContext.createGain();
+          tone.type = "triangle";
+          tone.frequency.setValueAtTime(180, time);
+          toneGain.gain.setValueAtTime(0.18 * level, time);
+          toneGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.12);
+          tone.connect(toneGain).connect(output);
+          tone.start(time);
+          tone.stop(time + 0.13);
+          return;
+        }
+
+        const duration = trackKey === "openhat" ? 0.36 : 0.06;
+        const noise = makeNoise(duration);
+        const filter = audioContext.createBiquadFilter();
+        const gain = audioContext.createGain();
+        filter.type = "highpass";
+        filter.frequency.setValueAtTime(6000, time);
+        gain.gain.setValueAtTime((trackKey === "openhat" ? 0.32 : 0.24) * level, time);
+        gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+        noise.connect(filter).connect(gain).connect(output);
+        noise.start(time);
+        noise.stop(time + duration);
+      }
+
+      function bassMidiForOffset(offset) {
+        return (state.bass.octave + 1) * 12 + offset;
+      }
+
+      function releaseBassNote(code, time = audioContext?.currentTime || 0) {
+        const voice = activeBassNotes.get(code);
+        if (!voice) return;
+        activeBassNotes.delete(code);
+        setBassKeyPressed(code, false);
+        voice.envelopes.forEach((envelope) => {
+          envelope.gain.cancelScheduledValues(time);
+          envelope.gain.setTargetAtTime(0.0001, time, state.bass.release);
+        });
+        voice.oscillators.forEach((osc) => osc.stop(time + state.bass.release + 0.1));
+      }
+
+      function releaseAllBassNotes() {
+        if (!audioContext) return;
+        [...activeBassNotes.keys()].forEach((code) => releaseBassNote(code, audioContext.currentTime));
+      }
+
+      function createBassVoice(midi, time, releaseAt = null, velocity = 1) {
+        const destination = audioContext.createGain();
+        const filter = audioContext.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(state.bass.filter, time);
+        filter.Q.setValueAtTime(5, time);
+        destination.connect(filter).connect(bassGain);
+
+        const voices = state.bass.layers.map((layer) => {
+          const osc = audioContext.createOscillator();
+          const envelope = audioContext.createGain();
+          const frequency = midiToHz(midi);
+          osc.type = layer.shape;
+          if (lastBassMidi !== null && state.bass.glide > 0) {
+            osc.frequency.setValueAtTime(midiToHz(lastBassMidi), time);
+            osc.frequency.linearRampToValueAtTime(frequency, time + state.bass.glide);
+          } else {
+            osc.frequency.setValueAtTime(frequency, time);
+          }
+          osc.detune.setValueAtTime(layer.detune, time);
+          envelope.gain.setValueAtTime(0.0001, time);
+          envelope.gain.exponentialRampToValueAtTime(Math.max(0.0001, layer.gain * velocity), time + 0.015);
+          osc.connect(envelope).connect(destination);
+          osc.start(time);
+          if (releaseAt !== null) {
+            envelope.gain.setTargetAtTime(0.0001, releaseAt, state.bass.release);
+            osc.stop(releaseAt + state.bass.release + 0.1);
+          }
+          return { osc, envelope };
+        });
+
+        lastBassMidi = midi;
+        return voices;
+      }
+
+      function playScheduledBassNote(note, time) {
+        if (!note) return;
+        const tickDuration = 60 / state.bpm / 4 / BASS_TICKS_PER_STEP;
+        const duration = Math.max(tickDuration * 0.8, tickDuration * note.length * 0.88);
+        createBassVoice(note.midi, time, time + duration, note.velocity);
+      }
+
+      function bassRecordTick() {
+        const stepDuration = 60 / state.bpm / 4;
+        const tickDuration = stepDuration / BASS_TICKS_PER_STEP;
+        const elapsed = audioContext ? audioContext.currentTime - currentStepStartTime : 0;
+        const subTick = Math.trunc(clampNumber(Math.floor(elapsed / tickDuration), 0, BASS_TICKS_PER_STEP - 1, 0));
+        return (state.playhead % STEPS) * BASS_TICKS_PER_STEP + subTick;
+      }
+
+      function recordBassNote(code, midi) {
+        if (!state.bass.recording || !state.isPlaying || state.playhead < 0) return;
+        const scene = currentScene();
+        const tick = bassRecordTick();
+        scene.bass = scene.bass.filter((event) => event.tick !== tick);
+        scene.bass.push({ tick, code, midi, length: BASS_TICKS_PER_STEP, velocity: 1 });
+        sortAndTrimBassEvents(scene.bass);
+        savePreset();
+        renderBassRoll();
+        renderBassEditor();
+        el.status.textContent = `Recorded bass ${bassNoteLabel({ midi })} on bass step ${(state.playhead % STEPS) + 1}.${(tick % BASS_TICKS_PER_STEP) + 1}`;
+      }
+
+      function playBassNote(code, offset) {
+        ensureAudio();
+        audioContext.resume();
+        if (activeBassNotes.has(code)) return;
+        const midi = bassMidiForOffset(offset);
+        const voices = createBassVoice(midi, audioContext.currentTime);
+        activeBassNotes.set(code, {
+          oscillators: voices.map((voice) => voice.osc),
+          envelopes: voices.map((voice) => voice.envelope),
+        });
+        setBassKeyPressed(code, true);
+        recordBassNote(code, midi);
+      }
+
+      function activeChordAt(layerValues, step) {
+        for (let offset = 0; offset < CHORD_STEPS; offset += 1) {
+          const index = (step - offset + CHORD_STEPS) % CHORD_STEPS;
+          const value = String(layerValues[index] || "").trim();
+          if (value) return value;
+        }
+        return "";
+      }
+
+      function activeChordStatus(scene, step) {
+        const rhythmChord = activeChordAt(scene.rhythm, step);
+        const harmonyChord = activeChordAt(scene.harmony, step);
+        if (!rhythmChord && !harmonyChord) return "";
+        return ` | Rhythm ${rhythmChord || "-"} | Harmony ${harmonyChord || "-"}`;
+      }
+
+      function scheduleStep(step, time) {
+        const scene = currentScene();
+        const rhythmChord = scene.rhythm[step];
+        const harmonyChord = scene.harmony[step];
+        const drumStep = step % DRUM_STEPS;
+        const bassStep = step % STEPS;
+        if (rhythmChord) playRhythm(rhythmChord, time);
+        if (harmonyChord || step === 0) playHarmony(harmonyChord, time);
+        bassEventsForStep(scene, bassStep).forEach((event) => {
+          const tickOffset = event.tick % BASS_TICKS_PER_STEP;
+          const tickDuration = 60 / state.bpm / 4 / BASS_TICKS_PER_STEP;
+          playScheduledBassNote(event, time + tickOffset * tickDuration);
+        });
+        TRACKS.forEach((track) => {
+          const velocity = normalizeDrumValue(scene.drums[track.key][drumStep]);
+          if (velocity > 0) playDrum(track.key, time, velocity);
+        });
+        window.setTimeout(() => {
+          if (!state.isPlaying) return;
+          state.playhead = step;
+          currentStepStartTime = time;
+          renderPlayhead();
+          const activeScene = currentScene();
+          el.status.textContent = `Playing ${activeScene.name} - chord step ${step + 1}${activeChordStatus(activeScene, step)}`;
+        }, Math.max(0, (time - audioContext.currentTime) * 1000));
+      }
+
+      function schedulerTick() {
+        while (nextNoteTime < audioContext.currentTime + 0.1) {
+          scheduleStep(nextStepIndex, nextNoteTime);
+          nextNoteTime += 60 / state.bpm / 4;
+          nextStepIndex = (nextStepIndex + 1) % LOOP_STEPS;
+          if (nextStepIndex === 0) advanceSceneSequence(nextNoteTime);
+        }
+      }
+
+      async function startPlayback() {
+        ensureAudio();
+        await audioContext.resume();
+        if (state.sounds.rhythm !== "internal" || state.sounds.harmony !== "internal" || TRACKS.some((track) => state.sounds.drums[track.key] !== "internal")) {
+          el.status.textContent = "Loading selected sounds...";
+          await ensureSelectedSounds();
+        }
+        stopPlayback(false);
+        state.isPlaying = true;
+        state.playhead = -1;
+        nextStepIndex = 0;
+        nextNoteTime = audioContext.currentTime + 0.05;
+        schedulerTimer = window.setInterval(schedulerTick, 25);
+        schedulerTick();
+        renderAll();
+      }
+
+      function stopPlayback(render = true) {
+        if (schedulerTimer) window.clearInterval(schedulerTimer);
+        schedulerTimer = null;
+        state.isPlaying = false;
+        state.playhead = -1;
+        state.pendingScene = null;
+        if (audioContext) releaseHarmony(audioContext.currentTime);
+        releaseAllBassNotes();
+        el.status.textContent = "Stopped";
+        if (render) renderAll();
+      }
+
+      function runBlockingAction(action) {
+        if (state.isPlaying) stopPlayback();
+        return action();
+      }
+
+      function confirmBlocking(message) {
+        return runBlockingAction(() => window.confirm(message));
+      }
+
+      function promptBlocking(message, value) {
+        return runBlockingAction(() => window.prompt(message, value));
+      }
+
+      function alertBlocking(message) {
+        return runBlockingAction(() => window.alert(message));
+      }
+
+      function setBpm(value) {
+        state.bpm = Math.max(60, Math.min(200, Number(value) || 100));
+        el.bpm.value = state.bpm;
+        savePreset();
+      }
+
+      function clampNumber(value, min, max, fallback) {
+        const number = Number(value);
+        if (!Number.isFinite(number)) return fallback;
+        return Math.max(min, Math.min(max, number));
+      }
+
+      function fixedLengthArray(value, fallback = "", length = STEPS) {
+        const source = Array.isArray(value) ? value.slice(0, length) : [];
+        while (source.length < length) source.push(fallback);
+        return source;
+      }
+
+      function normalizeDrumValue(value) {
+        if (value === true) return 1;
+        if (value === false || value === null || value === undefined) return 0;
+        const number = Number(value);
+        if (!Number.isFinite(number) || number <= 0) return 0;
+        return Math.min(1, number);
+      }
+
+      function drumLengthArray(value) {
+        const source = Array.isArray(value) ? value.slice(0, DRUM_STEPS) : [];
+        if (!source.length) return Array(DRUM_STEPS).fill(0);
+        const seed = source.slice();
+        if (DRUM_STEPS % seed.length === 0) {
+          while (source.length < DRUM_STEPS) source.push(...seed);
+        }
+        while (source.length < DRUM_STEPS) source.push(0);
+        return source.slice(0, DRUM_STEPS);
+      }
+
+      function drumValueToSymbol(value) {
+        const normalized = normalizeDrumValue(value);
+        if (normalized >= 0.95) return "X";
+        if (normalized > 0) return "x";
+        return "-";
+      }
+
+      function normalizeBassNote(value) {
+        if (!value || typeof value !== "object") return null;
+        const midi = Number(value.midi);
+        if (!Number.isFinite(midi)) return null;
+        const code = typeof value.code === "string" && BASS_KEY_MAP.has(value.code) ? value.code : "";
+        return { midi: Math.trunc(clampNumber(midi, 12, 96, 36)), code };
+      }
+
+      function normalizeBassEvent(value, fallbackTick = 0) {
+        const note = normalizeBassNote(value);
+        if (!note) return null;
+        const rawTick = Number.isFinite(Number(value.tick)) ? Number(value.tick) : fallbackTick;
+        const rawLength = Number.isFinite(Number(value.length)) ? Number(value.length) : BASS_TICKS_PER_STEP;
+        return {
+          tick: Math.trunc(clampNumber(rawTick, 0, BASS_TICKS - 1, fallbackTick)),
+          midi: note.midi,
+          length: Math.trunc(clampNumber(rawLength, 1, BASS_TICKS, BASS_TICKS_PER_STEP)),
+          velocity: clampNumber(value.velocity, 0, 1, 1),
+          code: note.code,
+        };
+      }
+
+      function normalizeBassEvents(value) {
+        if (!Array.isArray(value)) return [];
+        return sortAndTrimBassEvents(value
+          .map((entry, index) => normalizeBassEvent(entry, index * BASS_TICKS_PER_STEP))
+          .filter(Boolean));
+      }
+
+      function sortAndTrimBassEvents(events) {
+        events.sort((left, right) => left.tick - right.tick);
+        events.forEach((event, index) => {
+          const nextEvent = events[index + 1];
+          const maxLength = nextEvent ? nextEvent.tick - event.tick : BASS_TICKS - event.tick;
+          event.length = Math.max(1, Math.min(event.length, maxLength));
+        });
+        return events;
+      }
+
+      function bassNoteLabel(note) {
+        if (!note) return "";
+        const names = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+        return `${names[note.midi % 12]}${Math.floor(note.midi / 12) - 1}`;
+      }
+
+      function bassEventStep(event) {
+        return Math.floor(event.tick / BASS_TICKS_PER_STEP);
+      }
+
+      function bassEventsForStep(scene, step) {
+        return scene.bass.filter((event) => bassEventStep(event) === step);
+      }
+
+      function parseBassNotes(rawNotes) {
+        const tokens = String(rawNotes || "").trim().split(/\s+/).filter(Boolean);
+        if (!tokens.length) return [];
+        const notes = tokens.map(parseNoteName);
+        return notes.some((note) => !note) ? null : notes;
+      }
+
+      function normalizeBassNotesText(rawNotes) {
+        const notes = parseBassNotes(rawNotes);
+        if (!notes) return String(rawNotes || "").trim().toLowerCase();
+        return notes.map((note) => note.label).join(" ");
+      }
+
+      function parseBassPattern(rawPattern, maxTicks = BASS_TICKS) {
+        const raw = String(rawPattern || "").trim();
+        if (!raw) return [];
+        if (/[^xX_\-\s|.0]/.test(raw)) return null;
+        const symbols = [...raw.replace(/[\s|]/g, "").replace(/[.0]/g, "-")];
+        if (!symbols.length || symbols.length > maxTicks) return null;
+        return symbols;
+      }
+
+      function bassPatternNoteStartCount(pattern) {
+        return bassPatternStats(pattern).pulses;
+      }
+
+      function bassPatternStats(pattern) {
+        const stats = { pulses: 0, sustains: 0, rests: 0, ticks: pattern.length };
+        let hasActiveNote = false;
+        pattern.forEach((symbol) => {
+          if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveNote)) {
+            stats.pulses += 1;
+            hasActiveNote = true;
+            return;
+          }
+          if (symbol === "_") {
+            stats.sustains += 1;
+            return;
+          }
+          stats.rests += 1;
+          hasActiveNote = false;
+        });
+        return stats;
+      }
+
+      function bassPatternToEvents(rawNotes, rawPattern, tickOffset = 0, maxTicks = BASS_TICKS) {
+        const notes = parseBassNotes(rawNotes);
+        const pattern = parseBassPattern(rawPattern, maxTicks);
+        if (!notes || !pattern) return null;
+        if (notes.length !== bassPatternNoteStartCount(pattern)) return null;
+        const events = [];
+        let noteIndex = 0;
+        let currentEvent = null;
+        pattern.forEach((symbol, tick) => {
+          if (symbol === "x" || symbol === "X" || (symbol === "_" && !currentEvent)) {
+            const note = notes[noteIndex];
+            if (!note) return;
+            currentEvent = { tick: tickOffset + tick, midi: note.midi, length: 1, velocity: 1, code: "" };
+            events.push(currentEvent);
+            noteIndex += 1;
+            return;
+          }
+          if (symbol === "_" && currentEvent) {
+            currentEvent.length += 1;
+            return;
+          }
+          currentEvent = null;
+        });
+        return sortAndTrimBassEvents(events);
+      }
+
+      function formatBassPattern(events) {
+        const symbols = Array(BASS_TICKS).fill("-");
+        normalizeBassEvents(events).forEach((event) => {
+          symbols[event.tick] = "x";
+        });
+        return formatBassPatternSymbols(symbols);
+      }
+
+      function formatBassPatternPart(events, partIndex) {
+        const tickOffset = partIndex * BASS_EDITOR_PART_TICKS;
+        const symbols = Array(BASS_EDITOR_PART_TICKS).fill("-");
+        normalizeBassEvents(events)
+          .filter((event) => event.tick >= tickOffset && event.tick < tickOffset + BASS_EDITOR_PART_TICKS)
+          .forEach((event) => {
+            symbols[event.tick - tickOffset] = "x";
+          });
+        return formatBassPatternSymbols(symbols);
+      }
+
+      function formatBassPatternSymbols(symbols) {
+        const groups = [];
+        for (let index = 0; index < symbols.length; index += BASS_TICKS_PER_STEP) {
+          groups.push(symbols.slice(index, index + BASS_TICKS_PER_STEP).join(""));
+        }
+        return groups.join(" ");
+      }
+
+      function formatBassNotes(events, partIndex = null) {
+        const tickOffset = partIndex === null ? 0 : partIndex * BASS_EDITOR_PART_TICKS;
+        const tickLimit = partIndex === null ? BASS_TICKS : tickOffset + BASS_EDITOR_PART_TICKS;
+        return normalizeBassEvents(events)
+          .filter((event) => event.tick >= tickOffset && event.tick < tickLimit)
+          .map((event) => bassNoteLabel(event).toLowerCase())
+          .join(" ");
+      }
+
+      function updateBassEditorPartValidity(notesInput, patternInput, statsEl) {
+        const notes = parseBassNotes(notesInput.value);
+        const pattern = parseBassPattern(patternInput.value, BASS_EDITOR_PART_TICKS);
+        const stats = pattern ? bassPatternStats(pattern) : { pulses: 0, sustains: 0, rests: 0, ticks: 0 };
+        const invalidNotes = notes === null || (pattern !== null && notes.length !== stats.pulses);
+        notesInput.classList.toggle("invalid", invalidNotes);
+        notesInput.toggleAttribute("aria-invalid", invalidNotes);
+        patternInput.classList.toggle("invalid", pattern === null);
+        patternInput.toggleAttribute("aria-invalid", pattern === null);
+        notesInput.title = invalidNotes
+          ? `Enter exactly ${stats.pulses} note${stats.pulses === 1 ? "" : "s"} for this part. Each x starts a note; _ starts one only after silence.`
+          : "";
+        patternInput.title = pattern === null
+          ? `Use X, x, _, and - for up to ${BASS_EDITOR_PART_TICKS} fine pulses. Spaces, ., and 0 are allowed separators/rests.`
+          : "";
+        if (statsEl) {
+          statsEl.textContent = `notes ${notes?.length ?? 0}/${stats.pulses} | pulses ${stats.pulses} | sustains ${stats.sustains} | rests ${stats.rests} | ticks ${stats.ticks}/${BASS_EDITOR_PART_TICKS}`;
+        }
+        return {
+          events: invalidNotes || pattern === null ? null : bassPatternToEvents(notesInput.value, patternInput.value, Number(notesInput.dataset.tickOffset) || 0, BASS_EDITOR_PART_TICKS),
+          pattern,
+          stats,
+        };
+      }
+
+      function updateBassEditorFromParts(editor) {
+        const parts = [...editor.querySelectorAll("[data-bass-editor-part]")];
+        const results = parts.map((part) => updateBassEditorPartValidity(
+          part.querySelector(".bass-notes-input"),
+          part.querySelector(".bass-pattern-input"),
+          part.querySelector(".bass-editor-stats"),
+        ));
+        if (results.some((result) => !result.events)) return;
+        currentScene().bass = sortAndTrimBassEvents(results.flatMap((result) => result.events));
+        savePreset();
+        renderBassRoll();
+      }
+
+      function parseChordPool(rawChords) {
+        const tokens = String(rawChords || "").trim().split(/\s+/).filter(Boolean);
+        if (!tokens.length) return [];
+        const chords = tokens.map((token) => parseChord(token));
+        return chords.some((chord) => !chord) ? null : chords.map((chord) => chord.label);
+      }
+
+      function parseChordPattern(rawPattern, maxSteps = CHORD_STEPS) {
+        const raw = String(rawPattern || "").trim();
+        if (!raw) return [];
+        if (/[^xX_\-\s|.0]/.test(raw)) return null;
+        const symbols = [...raw.replace(/[\s|]/g, "").replace(/[.0]/g, "-")];
+        if (!symbols.length || symbols.length > maxSteps) return null;
+        return symbols;
+      }
+
+      function chordPatternStats(pattern) {
+        const stats = { pulses: 0, sustains: 0, rests: 0, steps: pattern.length };
+        let hasActiveChord = false;
+        pattern.forEach((symbol) => {
+          if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveChord)) {
+            stats.pulses += 1;
+            hasActiveChord = true;
+            return;
+          }
+          if (symbol === "_") {
+            stats.sustains += 1;
+            return;
+          }
+          stats.rests += 1;
+          hasActiveChord = false;
+        });
+        return stats;
+      }
+
+      function chordPatternToSlots(rawChords, rawPattern, maxSteps = CHORD_EDITOR_PART_STEPS) {
+        const chords = parseChordPool(rawChords);
+        const pattern = parseChordPattern(rawPattern, maxSteps);
+        if (!chords || !pattern) return null;
+        if (chords.length !== chordPatternStats(pattern).pulses) return null;
+        const slots = Array(maxSteps).fill("");
+        let chordIndex = 0;
+        let currentChord = "";
+        pattern.forEach((symbol, step) => {
+          if (symbol === "x" || symbol === "X" || (symbol === "_" && !currentChord)) {
+            currentChord = chords[chordIndex] || "";
+            slots[step] = currentChord;
+            chordIndex += 1;
+            return;
+          }
+          if (symbol === "_" && currentChord) {
+            slots[step] = currentChord;
+            return;
+          }
+          currentChord = "";
+        });
+        return slots;
+      }
+
+      function chordPatternSymbolGroups(symbols) {
+        const groups = [];
+        for (let index = 0; index < symbols.length; index += 4) {
+          groups.push(symbols.slice(index, index + 4).join(""));
+        }
+        return groups.join(" ");
+      }
+
+      function chordLayerPartValues(layerValues, partIndex) {
+        const startStep = partIndex * CHORD_EDITOR_PART_STEPS;
+        return fixedLengthArray(layerValues, "", CHORD_STEPS).slice(startStep, startStep + CHORD_EDITOR_PART_STEPS);
+      }
+
+      function formatChordPatternPart(layerValues, partIndex) {
+        const symbols = [];
+        let currentChord = "";
+        chordLayerPartValues(layerValues, partIndex).forEach((rawValue) => {
+          const value = String(rawValue || "").trim();
+          if (!value) {
+            symbols.push("-");
+            currentChord = "";
+            return;
+          }
+          if (currentChord && value === currentChord) {
+            symbols.push("_");
+            return;
+          }
+          symbols.push("x");
+          currentChord = value;
+        });
+        return chordPatternSymbolGroups(symbols);
+      }
+
+      function formatChordPoolPart(layerValues, partIndex) {
+        const chords = [];
+        let currentChord = "";
+        chordLayerPartValues(layerValues, partIndex).forEach((rawValue) => {
+          const value = String(rawValue || "").trim();
+          if (!value) {
+            currentChord = "";
+            return;
+          }
+          if (currentChord && value === currentChord) return;
+          chords.push(value);
+          currentChord = value;
+        });
+        return chords.join(" ");
+      }
+
+      function formatDrumPattern(values) {
+        const symbols = drumLengthArray(values).map(drumValueToSymbol);
+        const groups = [];
+        for (let index = 0; index < symbols.length; index += 4) {
+          groups.push(symbols.slice(index, index + 4).join(""));
+        }
+        return groups.join(" ");
+      }
+
+      function parseDrumPattern(value) {
+        const raw = String(value || "").trim();
+        if (!raw) return null;
+        if (/[^xX_\-\s|.0]/.test(raw)) return null;
+        const symbols = [...raw.replace(/[\s|]/g, "").replace(/[.0]/g, "-")];
+        if (!symbols.length || symbols.length > DRUM_STEPS || DRUM_STEPS % symbols.length !== 0) return null;
+        const expanded = [];
+        while (expanded.length < DRUM_STEPS) expanded.push(...symbols);
+        return expanded.slice(0, DRUM_STEPS).map((symbol) => {
+          if (symbol === "X") return 1;
+          if (symbol === "x") return 0.72;
+          return 0;
+        });
+      }
+
+      function renderDrumPatternPreview(preview, rawPattern) {
+        if (!preview) return;
+        preview.replaceChildren();
+        const raw = String(rawPattern || "");
+        const activeStep = state.playhead >= 0 ? state.playhead % DRUM_STEPS : -1;
+        let step = 0;
+        [...raw].forEach((char) => {
+          if (/[\s|]/.test(char)) {
+            preview.append(document.createTextNode(char));
+            return;
+          }
+          const cell = document.createElement("span");
+          cell.textContent = char;
+          const normalized = char === "." || char === "0" ? "-" : char;
+          if (!["x", "X", "_", "-"].includes(normalized) || step >= DRUM_STEPS) {
+            cell.className = "invalid";
+          } else {
+            cell.classList.toggle("accent", normalized === "X");
+            cell.classList.toggle("on", normalized === "x");
+            cell.classList.toggle("sustain", normalized === "_");
+            cell.classList.toggle("rest", normalized === "-");
+            cell.classList.toggle("playing", step === activeStep);
+          }
+          step += 1;
+          preview.append(cell);
+        });
+      }
+
+      function renderDrumPatternPreviews() {
+        document.querySelectorAll(".drum-pattern-preview").forEach((preview) => {
+          const input = preview.parentElement?.querySelector(".drum-pattern-input");
+          renderDrumPatternPreview(preview, input?.value);
+          if (input) preview.scrollLeft = input.scrollLeft;
+        });
+      }
+
+      function dubSceneLabel(index) {
+        return index === 9 ? "SLOT0" : `SLOT${index + 1}`;
+      }
+
+      function dubLineComment(value) {
+        return String(value || "").replace(/\r?\n/g, " ").trim();
+      }
+
+      function dubMetaValue(value) {
+        if (typeof value === "boolean") return value ? "true" : "false";
+        if (typeof value === "number") return Number.isInteger(value) ? String(value) : value.toFixed(2);
+        return dubLineComment(value);
+      }
+
+      function dubMetaMap(entries) {
+        return entries
+          .map(([key, value]) => `${key}=${dubMetaValue(value)}`)
+          .join(", ");
+      }
+
+      function soundLabel(key) {
+        return SOUND_CATALOG[key]?.label || key;
+      }
+
+      function drumSoundLabel(key) {
+        return DRUM_KIT_CATALOG[key]?.label || key;
+      }
+
+      function bassPresetLabel(key) {
+        return BASS_PRESETS[key]?.label || key;
+      }
+
+      function formatDubChordLayer(layerValues) {
+        const symbols = [];
+        const chords = [];
+        let currentChord = "";
+        fixedLengthArray(layerValues, "", CHORD_STEPS).forEach((rawValue) => {
+          const value = String(rawValue || "").trim();
+          if (!value) {
+            symbols.push("-");
+            currentChord = "";
+            return;
+          }
+          if (currentChord && value === currentChord) {
+            symbols.push("_");
+            return;
+          }
+          symbols.push("x");
+          chords.push(value);
+          currentChord = value;
+        });
+        return { pattern: chordPatternSymbolGroups(symbols), pool: chords.join(" ") };
+      }
+
+      function formatDubBassPattern(events) {
+        const symbols = Array(BASS_TICKS).fill("-");
+        normalizeBassEvents(events).forEach((event) => {
+          symbols[event.tick] = "x";
+          for (let offset = 1; offset < event.length && event.tick + offset < BASS_TICKS; offset += 1) {
+            if (symbols[event.tick + offset] === "-") symbols[event.tick + offset] = "_";
+          }
+        });
+        const cells = [];
+        for (let step = 0; step < STEPS; step += 1) {
+          const tick = step * BASS_TICKS_PER_STEP;
+          cells.push(`[${symbols.slice(tick, tick + BASS_TICKS_PER_STEP).join("")}]`);
+        }
+        const groups = [];
+        for (let index = 0; index < cells.length; index += 4) {
+          groups.push(cells.slice(index, index + 4).join(""));
+        }
+        return groups.join(" ");
+      }
+
+      function exportDubText() {
+        const bassLayer = state.bass.layers[0] || { shape: "sine", detune: 0, gain: 1 };
+        const lines = [
+          "; skanker dub export",
+          `; tempo: ${state.bpm}`,
+          "; bars: 2",
+          `; skanker.loop_steps: ${LOOP_STEPS}`,
+          `; skanker.current_scene: ${dubSceneLabel(state.currentScene)}`,
+          `; skanker.pending_scene: ${state.pendingScene === null ? "none" : dubSceneLabel(state.pendingScene)}`,
+          `; skanker.loop_active_scene: ${dubMetaValue(state.loopActiveScene)}`,
+          `; skanker.transport: ${dubMetaMap([
+            ["strum", state.strumLength],
+            ["pad_attack", state.padAttack],
+          ])}`,
+          `; skanker.main_mix: ${dubMetaMap([
+            ["master", state.volumes.master],
+            ["rhythm", state.volumes.rhythm],
+            ["harmony", state.volumes.harmony],
+            ["drums", state.volumes.drums],
+            ["bass", state.bass.volume],
+          ])}`,
+          `; skanker.volumes: ${dubMetaMap([
+            ["master", state.volumes.master],
+            ["rhythm", state.volumes.rhythm],
+            ["harmony", state.volumes.harmony],
+            ["drums", state.volumes.drums],
+          ])}`,
+          `; skanker.sounds: ${dubMetaMap([
+            ["rhythm", state.sounds.rhythm],
+            ["harmony", state.sounds.harmony],
+            ["kick", state.sounds.drums.kick],
+            ["snare", state.sounds.drums.snare],
+            ["hihat", state.sounds.drums.hihat],
+            ["openhat", state.sounds.drums.openhat],
+          ])}`,
+          `; skanker.sound_labels: ${dubMetaMap([
+            ["rhythm", soundLabel(state.sounds.rhythm)],
+            ["harmony", soundLabel(state.sounds.harmony)],
+            ["kick", drumSoundLabel(state.sounds.drums.kick)],
+            ["snare", drumSoundLabel(state.sounds.drums.snare)],
+            ["hihat", drumSoundLabel(state.sounds.drums.hihat)],
+            ["openhat", drumSoundLabel(state.sounds.drums.openhat)],
+          ])}`,
+          `; skanker.bass: ${dubMetaMap([
+            ["enabled", state.bass.enabled],
+            ["preset", state.bass.preset],
+            ["preset_label", bassPresetLabel(state.bass.preset)],
+            ["shape", bassLayer.shape],
+            ["octave", state.bass.octave],
+            ["volume", state.bass.volume],
+            ["filter", state.bass.filter],
+            ["glide", state.bass.glide],
+            ["release", state.bass.release],
+            ["recording", state.bass.recording],
+            ["detune", bassLayer.detune],
+            ["layer_gain", bassLayer.gain],
+          ])}`,
+          "",
+        ];
+        state.scenes.forEach((scene, index) => {
+          const rhythm = formatDubChordLayer(scene.rhythm);
+          const harmony = formatDubChordLayer(scene.harmony);
+          lines.push(`@${dubSceneLabel(index)}`);
+          lines.push(`  ; scene.name: ${dubLineComment(scene.name)}`);
+          lines.push(`  ; scene.mutes: ${dubMetaMap([
+            ["rhythm", Boolean(scene.mutes?.rhythm)],
+            ["harmony", Boolean(scene.mutes?.harmony)],
+            ["bass", Boolean(scene.mutes?.bass)],
+          ])}`);
+          lines.push(`  ; scene.drum_mutes: ${dubMetaMap(TRACKS.map((track) => [
+            track.key,
+            Boolean(scene.mutes?.drums?.[track.key]),
+          ]))}`);
+          lines.push(`  ; scene.drum_levels: ${dubMetaMap(TRACKS.map((track) => [
+            track.key,
+            scene.trackVolumes[track.key],
+          ]))}`);
+          lines.push(`  #rhythm 1.0 ${rhythm.pattern}${rhythm.pool ? ` ${rhythm.pool}` : ""}`);
+          lines.push(`  #harmony 1.0 ${harmony.pattern}${harmony.pool ? ` ${harmony.pool}` : ""}`);
+          lines.push(`  #bass ${state.bass.volume.toFixed(2)} ${formatDubBassPattern(scene.bass)} ${formatBassNotes(scene.bass)}`.trimEnd());
+          TRACKS.forEach((track) => {
+            lines.push(`  #${track.key} ${scene.trackVolumes[track.key].toFixed(2)} ${formatDrumPattern(scene.drums[track.key])} ${DRUM_NOTE_LABELS[track.key]}`);
+          });
+          lines.push("");
+        });
+        lines.push(`$: ${state.scenes.map((_, index) => dubSceneLabel(index)).join(" ")}`);
+        return `${lines.join("\n")}\n`;
+      }
+
+      function downloadTextFile(filename, text, type = "text/plain") {
+        const blob = new Blob([text], { type });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function stripDubComment(line) {
+        const semicolon = line.indexOf(";");
+        const dash = line.indexOf(" -- ");
+        const cuts = [semicolon, dash].filter((index) => index >= 0);
+        return cuts.length ? line.slice(0, Math.min(...cuts)) : line;
+      }
+
+      function isDubPatternToken(token) {
+        return /^[xX_\-.0\[\]]+$/.test(token);
+      }
+
+      function normalizeDubPatternSymbol(symbol) {
+        if (symbol === "." || symbol === "0") return "-";
+        return symbol;
+      }
+
+      function dubPatternChars(raw) {
+        return [...String(raw || "").replace(/[\s|]/g, "")]
+          .map(normalizeDubPatternSymbol)
+          .filter((symbol) => ["x", "X", "_", "-"].includes(symbol));
+      }
+
+      function parseDubPatternCells(rawPattern, stepCount, ticksPerStep = 1) {
+        const raw = String(rawPattern || "").replace(/[\s|]/g, "");
+        if (!raw) return Array.from({ length: stepCount }, () => Array(ticksPerStep).fill("-"));
+        const cells = [];
+        for (let index = 0; index < raw.length; index += 1) {
+          const char = normalizeDubPatternSymbol(raw[index]);
+          if (char === "[") {
+            const closeIndex = raw.indexOf("]", index + 1);
+            if (closeIndex === -1) return null;
+            const group = dubPatternChars(raw.slice(index + 1, closeIndex));
+            if (!group.length) return null;
+            const cell = Array(ticksPerStep).fill("-");
+            if (ticksPerStep === 1) {
+              cell[0] = group.includes("X") ? "X" : (group.includes("x") ? "x" : (group.includes("_") ? "_" : "-"));
+            } else {
+              group.slice(0, ticksPerStep).forEach((symbol, tick) => {
+                cell[tick] = symbol;
+              });
+            }
+            cells.push(cell);
+            index = closeIndex;
+            continue;
+          }
+          if (char === "]") return null;
+          if (!["x", "X", "_", "-"].includes(char)) return null;
+          cells.push([char, ...Array(Math.max(0, ticksPerStep - 1)).fill("-")]);
+        }
+        if (cells.length > stepCount) return null;
+        while (cells.length < stepCount) cells.push(Array(ticksPerStep).fill("-"));
+        return cells;
+      }
+
+      function parseDubBassSymbols(rawPattern) {
+        const raw = String(rawPattern || "").replace(/[\s|]/g, "");
+        if (!raw) return Array(BASS_TICKS).fill("-");
+        if (raw.includes("[") || raw.includes("]")) {
+          const cells = parseDubPatternCells(rawPattern, STEPS, BASS_TICKS_PER_STEP);
+          return cells ? cells.flat().slice(0, BASS_TICKS) : null;
+        }
+        const symbols = dubPatternChars(raw);
+        if (symbols.length > BASS_TICKS) return null;
+        if (symbols.length <= STEPS) {
+          return symbols.flatMap((symbol) => [symbol, ...Array(BASS_TICKS_PER_STEP - 1).fill("-")])
+            .concat(Array(BASS_TICKS).fill("-"))
+            .slice(0, BASS_TICKS);
+        }
+        return symbols.concat(Array(BASS_TICKS).fill("-")).slice(0, BASS_TICKS);
+      }
+
+      function bassDubLineToEvents(pattern, notesText) {
+        const notes = parseBassNotes(notesText);
+        const symbols = parseDubBassSymbols(pattern);
+        if (!notes || !symbols) return null;
+        const events = [];
+        let noteIndex = 0;
+        let currentEvent = null;
+        symbols.forEach((symbol, tick) => {
+          if (symbol === "x" || symbol === "X" || (symbol === "_" && !currentEvent)) {
+            const note = notes[noteIndex];
+            if (!note) return;
+            currentEvent = { tick, midi: note.midi, length: 1, velocity: symbol === "X" ? 1 : 0.85, code: "" };
+            events.push(currentEvent);
+            noteIndex += 1;
+            return;
+          }
+          if (symbol === "_" && currentEvent) {
+            currentEvent.length += 1;
+            return;
+          }
+          currentEvent = null;
+        });
+        return noteIndex === notes.length ? sortAndTrimBassEvents(events) : null;
+      }
+
+      function chordDubLineToSlots(pattern, chordsText) {
+        const chords = String(chordsText || "").trim().split(/\s+/).filter(Boolean);
+        if (chords.some((chord) => !parseChord(chord))) return null;
+        const cells = parseDubPatternCells(pattern, CHORD_STEPS, 1);
+        if (!cells) return null;
+        const slots = Array(CHORD_STEPS).fill("");
+        let chordIndex = 0;
+        let currentChord = "";
+        cells.forEach((cell, step) => {
+          const symbol = cell[0];
+          if (symbol === "x" || symbol === "X" || (symbol === "_" && !currentChord)) {
+            currentChord = chords[chordIndex] || "";
+            slots[step] = currentChord;
+            chordIndex += 1;
+            return;
+          }
+          if (symbol === "_" && currentChord) {
+            slots[step] = currentChord;
+            return;
+          }
+          currentChord = "";
+        });
+        return chordIndex === chords.length ? slots : null;
+      }
+
+      function drumDubLineToValues(pattern) {
+        const cells = parseDubPatternCells(pattern, DRUM_STEPS, 1);
+        if (!cells) return null;
+        return cells.map((cell) => {
+          if (cell[0] === "X") return 1;
+          if (cell[0] === "x") return 0.72;
+          return 0;
+        });
+      }
+
+      function parseDubChannelLine(line) {
+        const parts = line.trim().split(/\s+/).filter(Boolean);
+        const instrument = parts.shift()?.slice(1).toLowerCase();
+        if (!instrument) return null;
+        if (parts[0] === "+" || parts[0] === "!") parts.shift();
+        const velocity = Number(parts[0]);
+        if (Number.isFinite(velocity)) parts.shift();
+        const patternParts = [];
+        while (parts.length && isDubPatternToken(parts[0])) patternParts.push(parts.shift());
+        if (!patternParts.length) return null;
+        return { instrument, pattern: patternParts.join(" "), notes: parts.join(" ") };
+      }
+
+      function dubDrumTrackKey(instrument) {
+        const aliases = {
+          bd: "kick",
+          bassdrum: "kick",
+          sd: "snare",
+          ch: "hihat",
+          hh: "hihat",
+          closedhat: "hihat",
+          closedhh: "hihat",
+          oh: "openhat",
+          openhh: "openhat",
+        };
+        return aliases[instrument] || instrument;
+      }
+
+      function parseDubArrangement(rawArrangement) {
+        const tokens = String(rawArrangement || "").trim().split(/\s+/).filter(Boolean);
+        const expanded = [];
+        tokens.forEach((token) => {
+          const repeat = token.match(/^x(\d+)$/i);
+          if (repeat) {
+            const previous = expanded[expanded.length - 1];
+            if (!previous) return;
+            const count = Math.max(1, Math.min(SCENE_SLOTS, Number(repeat[1]) || 1));
+            for (let index = 1; index < count; index += 1) expanded.push(previous);
+            return;
+          }
+          if (token === "%") {
+            const previous = expanded[expanded.length - 1];
+            if (previous) expanded.push(previous);
+            return;
+          }
+          expanded.push(token.replace(/^@/, ""));
+        });
+        return expanded;
+      }
+
+      function applyDubChannel(scene, channel) {
+        if (channel.instrument === "rhythm" || channel.instrument === "skank") {
+          const slots = chordDubLineToSlots(channel.pattern, channel.notes);
+          if (!slots) throw new Error(`Invalid rhythm DUB line in ${scene.name}.`);
+          scene.rhythm = slots;
+          return;
+        }
+        if (channel.instrument === "harmony" || channel.instrument === "chords") {
+          const slots = chordDubLineToSlots(channel.pattern, channel.notes);
+          if (!slots) throw new Error(`Invalid harmony DUB line in ${scene.name}.`);
+          scene.harmony = slots;
+          return;
+        }
+        if (channel.instrument === "bass" || channel.instrument === "bassline") {
+          const events = bassDubLineToEvents(channel.pattern, channel.notes);
+          if (!events) throw new Error(`Invalid bass DUB line in ${scene.name}.`);
+          scene.bass = events;
+          return;
+        }
+        const drumTrackName = dubDrumTrackKey(channel.instrument);
+        const drumTrack = TRACKS.find((track) => track.key === drumTrackName || track.label.toLowerCase().replace(/[^a-z]/g, "") === drumTrackName);
+        if (!drumTrack) return;
+        const values = drumDubLineToValues(channel.pattern);
+        if (!values) throw new Error(`Invalid ${channel.instrument} DUB line in ${scene.name}.`);
+        scene.drums[drumTrack.key] = values;
+      }
+
+      function importDubText(text) {
+        const scenesByName = new Map();
+        const order = [];
+        let nextBpm = state.bpm;
+        let currentSection = null;
+        String(text || "").split(/\r?\n/).forEach((rawLine) => {
+          const commentSceneName = rawLine.match(/^\s*;\s*scene\.name:\s*(.+)$/i);
+          if (commentSceneName && currentSection) {
+            currentSection.name = commentSceneName[1].trim() || currentSection.name;
+            return;
+          }
+          const tempo = rawLine.match(/^\s*;\s*tempo:\s*(\d+(?:\.\d+)?)/i);
+          if (tempo) nextBpm = clampNumber(tempo[1], 60, 200, state.bpm);
+          const line = stripDubComment(rawLine).trim();
+          if (!line) return;
+          if (line.startsWith("$:")) {
+            order.splice(0, order.length, ...parseDubArrangement(line.slice(2)));
+            return;
+          }
+          const sectionMatch = line.match(/^@?([A-Za-z][A-Za-z0-9_-]*)$/);
+          if (sectionMatch && !line.startsWith("#")) {
+            const name = sectionMatch[1];
+            currentSection = createBlankScene(scenesByName.size);
+            currentSection.name = name;
+            scenesByName.set(name, currentSection);
+            if (!order.includes(name)) order.push(name);
+            return;
+          }
+          if (line.startsWith("#")) {
+            const channel = parseDubChannelLine(line);
+            if (!channel && /^#+\s*[A-Za-z][A-Za-z0-9_-]*$/.test(line)) return;
+            if (!currentSection) throw new Error("DUB channel line found before a section.");
+            if (!channel) throw new Error(`Could not parse DUB line: ${line}`);
+            applyDubChannel(currentSection, channel);
+          }
+        });
+        const orderedNames = order.filter((name) => scenesByName.has(name));
+        if (!orderedNames.length) throw new Error("No DUB sections found to import.");
+        state.bpm = nextBpm;
+        state.scenes = Array.from({ length: SCENE_SLOTS }, (_, index) => {
+          const scene = scenesByName.get(orderedNames[index]);
+          return normalizeScene(scene, index);
+        });
+        state.currentScene = 0;
+        state.pendingScene = null;
+        releaseHarmony(audioContext?.currentTime || 0);
+        savePreset();
+        renderAll();
+      }
+
+      function handleDubImportFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.addEventListener("load", () => {
+          try {
+            runBlockingAction(() => null);
+            importDubText(String(reader.result || ""));
+            el.status.textContent = `Imported ${file.name}`;
+          } catch (error) {
+            alertBlocking(error instanceof Error ? error.message : "Could not import DUB file.");
+          } finally {
+            el.dubImportFile.value = "";
+          }
+        });
+        reader.addEventListener("error", () => {
+          alertBlocking(`Could not read ${file.name}.`);
+          el.dubImportFile.value = "";
+        });
+        reader.readAsText(file);
+      }
+
+      function normalizeScene(rawScene, index) {
+        const blankScene = createBlankScene(index);
+        const source = rawScene && typeof rawScene === "object" ? rawScene : {};
+        return {
+          name: typeof source.name === "string" && source.name.trim() ? source.name.trim() : blankScene.name,
+          rhythm: fixedLengthArray(source.rhythm, "", CHORD_STEPS).map((value) => String(value || "")),
+          harmony: fixedLengthArray(source.harmony, "", CHORD_STEPS).map((value) => String(value || "")),
+          bass: normalizeBassEvents(source.bass),
+          drums: Object.fromEntries(TRACKS.map((track) => [
+            track.key,
+            drumLengthArray(source.drums?.[track.key]).map(normalizeDrumValue),
+          ])),
+          mutes: {
+            rhythm: Boolean(source.mutes?.rhythm),
+            harmony: Boolean(source.mutes?.harmony),
+            bass: Boolean(source.mutes?.bass),
+            drums: Object.fromEntries(TRACKS.map((track) => [
+              track.key,
+              Boolean(source.mutes?.drums?.[track.key]),
+            ])),
+          },
+          trackVolumes: Object.fromEntries(TRACKS.map((track) => [
+            track.key,
+            clampNumber(source.trackVolumes?.[track.key], 0, 1, blankScene.trackVolumes[track.key]),
+          ])),
+        };
+      }
+
+      function normalizeUserDrumPreset(source) {
+        if (!source || typeof source !== "object") return null;
+        const name = typeof source.name === "string" ? source.name.trim() : "";
+        if (!name) return null;
+        const rawId = typeof source.id === "string" && source.id.trim() ? source.id.trim() : name;
+        const id = rawId.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `rhythm-${Date.now()}`;
+        return {
+          id,
+          name,
+          bpm: clampNumber(source.bpm, 60, 200, state.bpm),
+          createdAt: typeof source.createdAt === "string" ? source.createdAt : new Date().toISOString(),
+          updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : new Date().toISOString(),
+          drums: Object.fromEntries(TRACKS.map((track) => [
+            track.key,
+            drumLengthArray(source.drums?.[track.key]).map(normalizeDrumValue),
+          ])),
+        };
+      }
+
+      function currentDrumPattern() {
+        const scene = currentScene();
+        return Object.fromEntries(TRACKS.map((track) => [
+          track.key,
+          drumLengthArray(scene.drums[track.key]).map(normalizeDrumValue),
+        ]));
+      }
+
+      function userDrumPresetExportPayload() {
+        return {
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          presets: state.userDrumPresets.map((preset) => normalizeUserDrumPreset(preset)).filter(Boolean),
+        };
+      }
+
+      function loadUserDrumPresets() {
+        try {
+          const rawPresets = window.localStorage.getItem(USER_DRUM_PRESETS_KEY);
+          if (!rawPresets) return;
+          const parsed = JSON.parse(rawPresets);
+          const rawList = Array.isArray(parsed) ? parsed : parsed?.presets;
+          state.userDrumPresets = Array.isArray(rawList) ? rawList.map(normalizeUserDrumPreset).filter(Boolean) : [];
+        } catch (error) {
+          console.warn("Could not load user drum presets", error);
+        }
+      }
+
+      function saveUserDrumPresets() {
+        try {
+          window.localStorage.setItem(USER_DRUM_PRESETS_KEY, JSON.stringify(userDrumPresetExportPayload()));
+        } catch (error) {
+          console.warn("Could not save user drum presets", error);
+        }
+      }
+
+      function normalizeUserChordPreset(source) {
+        if (!source || typeof source !== "object") return null;
+        const name = typeof source.name === "string" ? source.name.trim() : "";
+        if (!name) return null;
+        const rawId = typeof source.id === "string" && source.id.trim() ? source.id.trim() : name;
+        const id = rawId.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `progression-${Date.now()}`;
+        const chordCatalog = source.chordCatalog && typeof source.chordCatalog === "object"
+          ? Object.fromEntries(Object.entries(source.chordCatalog).map(([chord, notes]) => [chordName(chord), String(notes || "")]).filter(([chord]) => chord))
+          : {};
+        return {
+          id,
+          name,
+          createdAt: typeof source.createdAt === "string" ? source.createdAt : new Date().toISOString(),
+          updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : new Date().toISOString(),
+          rhythm: fixedLengthArray(source.rhythm, "", CHORD_STEPS).map((value) => String(value || "").trim()),
+          harmony: fixedLengthArray(source.harmony, "", CHORD_STEPS).map((value) => String(value || "").trim()),
+          chordCatalog,
+        };
+      }
+
+      function currentChordPattern() {
+        const scene = currentScene();
+        return {
+          rhythm: fixedLengthArray(scene.rhythm, "", CHORD_STEPS).map((value) => String(value || "").trim()),
+          harmony: fixedLengthArray(scene.harmony, "", CHORD_STEPS).map((value) => String(value || "").trim()),
+          chordCatalog: { ...state.chordCatalog },
+        };
+      }
+
+      function userChordPresetExportPayload() {
+        return {
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          progressions: state.userChordPresets.map((preset) => normalizeUserChordPreset(preset)).filter(Boolean),
+        };
+      }
+
+      function loadUserChordPresets() {
+        try {
+          const rawPresets = window.localStorage.getItem(USER_CHORD_PRESETS_KEY);
+          if (!rawPresets) return;
+          const parsed = JSON.parse(rawPresets);
+          const rawList = Array.isArray(parsed) ? parsed : parsed?.progressions;
+          state.userChordPresets = Array.isArray(rawList) ? rawList.map(normalizeUserChordPreset).filter(Boolean) : [];
+        } catch (error) {
+          console.warn("Could not load user chord progressions", error);
+        }
+      }
+
+      function saveUserChordPresets() {
+        try {
+          window.localStorage.setItem(USER_CHORD_PRESETS_KEY, JSON.stringify(userChordPresetExportPayload()));
+        } catch (error) {
+          console.warn("Could not save user chord progressions", error);
+        }
+      }
+
+      function normalizeBassSettings(source = {}) {
+        const rawPreset = Object.prototype.hasOwnProperty.call(BASS_PRESETS, source.preset) ? source.preset : "sub";
+        const preset = BASS_PRESETS[rawPreset];
+        const rawLayer = Array.isArray(source.layers) && source.layers[0] ? source.layers[0] : {};
+        const shape = BASS_SHAPES.includes(rawLayer.shape) ? rawLayer.shape : preset.shape;
+        return {
+          enabled: Boolean(source.enabled),
+          preset: rawPreset,
+          octave: Math.trunc(clampNumber(source.octave, 0, 4, 2)),
+          volume: clampNumber(source.volume, 0, 1, 0.65),
+          filter: clampNumber(source.filter, 120, 1800, preset.filter),
+          glide: clampNumber(source.glide, 0, 0.2, preset.glide),
+          release: clampNumber(source.release, 0.04, 1, preset.release),
+          recording: Boolean(source.recording),
+          layers: [{
+            shape,
+            detune: clampNumber(rawLayer.detune, -1200, 1200, 0),
+            gain: clampNumber(rawLayer.gain, 0, 1, 1),
+          }],
+        };
+      }
+
+      function applyBassPreset(presetKey) {
+        const preset = BASS_PRESETS[presetKey] || BASS_PRESETS.sub;
+        state.bass.preset = presetKey;
+        state.bass.filter = preset.filter;
+        state.bass.glide = preset.glide;
+        state.bass.release = preset.release;
+        state.bass.layers = [{ ...state.bass.layers[0], shape: preset.shape }];
+        savePreset();
+        renderBassControls();
+      }
+
+      function presetSnapshot() {
+        return {
+          version: 1,
+          presetName: PRESET_NAME,
+          bpm: state.bpm,
+          currentScene: state.currentScene,
+          loopActiveScene: state.loopActiveScene,
+          strumLength: state.strumLength,
+          padAttack: state.padAttack,
+          drumPresetPanelOpen: state.drumPresetPanelOpen,
+          drumPresetGenre: state.drumPresetGenre,
+          activeDrumPreset: state.activeDrumPreset ? { ...state.activeDrumPreset } : null,
+          chordPresetPanelOpen: state.chordPresetPanelOpen,
+          activeChordPreset: state.activeChordPreset ? { ...state.activeChordPreset } : null,
+          sounds: { ...state.sounds },
+          bass: normalizeBassSettings(state.bass),
+          volumes: { ...state.volumes },
+          chordCatalog: { ...state.chordCatalog },
+          scenes: state.scenes.map((scene, index) => normalizeScene(scene, index)),
+        };
+      }
+
+      function savePreset() {
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(presetSnapshot()));
+        } catch (error) {
+          console.warn("Could not save Skanker preset", error);
+        }
+      }
+
+      function loadPreset() {
+        try {
+          const rawPreset = window.localStorage.getItem(STORAGE_KEY);
+          if (!rawPreset) return;
+          const preset = JSON.parse(rawPreset);
+          if (!preset || typeof preset !== "object") return;
+
+          state.bpm = clampNumber(preset.bpm, 60, 200, state.bpm);
+          state.currentScene = Math.trunc(clampNumber(preset.currentScene, 0, state.scenes.length - 1, 0));
+          state.loopActiveScene = Boolean(preset.loopActiveScene);
+          state.strumLength = clampNumber(preset.strumLength, 0.05, 0.25, state.strumLength);
+          state.padAttack = clampNumber(preset.padAttack, 0.02, 0.4, state.padAttack);
+          state.drumPresetPanelOpen = Boolean(preset.drumPresetPanelOpen);
+          state.drumPresetGenre = Object.prototype.hasOwnProperty.call(DRUM_PRESETS, preset.drumPresetGenre)
+            ? preset.drumPresetGenre
+            : state.drumPresetGenre;
+          state.chordPresetPanelOpen = Boolean(preset.chordPresetPanelOpen);
+          const savedActivePreset = preset.activeDrumPreset;
+          const hasBuiltInPreset = savedActivePreset && DRUM_PRESETS[savedActivePreset.genre]?.patterns[savedActivePreset.preset];
+          const hasUserPreset = savedActivePreset?.genre === "user" && state.userDrumPresets.some((entry) => entry.id === savedActivePreset.preset);
+          state.activeDrumPreset = hasBuiltInPreset || hasUserPreset
+            ? { genre: savedActivePreset.genre, preset: savedActivePreset.preset }
+            : null;
+          const savedActiveChordPreset = preset.activeChordPreset;
+          state.activeChordPreset = savedActiveChordPreset?.type === "user" && state.userChordPresets.some((entry) => entry.id === savedActiveChordPreset.preset)
+            ? { type: "user", preset: savedActiveChordPreset.preset }
+            : null;
+          state.sounds = {
+            rhythm: Object.prototype.hasOwnProperty.call(SOUND_CATALOG, preset.sounds?.rhythm)
+              ? preset.sounds.rhythm
+              : (preset.rhythmEngine === "webaudiofont-piano" ? "piano" : state.sounds.rhythm),
+            harmony: Object.prototype.hasOwnProperty.call(SOUND_CATALOG, preset.sounds?.harmony)
+              ? preset.sounds.harmony
+              : state.sounds.harmony,
+            drums: normalizeDrumSounds(preset.sounds?.drums),
+          };
+          state.bass = normalizeBassSettings(preset.bass);
+          state.volumes = {
+            master: clampNumber(preset.volumes?.master, 0, 1, state.volumes.master),
+            rhythm: clampNumber(preset.volumes?.rhythm, 0, 1, state.volumes.rhythm),
+            harmony: clampNumber(preset.volumes?.harmony, 0, 1, state.volumes.harmony),
+            drums: clampNumber(preset.volumes?.drums, 0, 1, state.volumes.drums),
+          };
+          state.chordCatalog = preset.chordCatalog && typeof preset.chordCatalog === "object"
+            ? Object.fromEntries(Object.entries(preset.chordCatalog).map(([name, notes]) => [chordName(name), String(notes || "")]).filter(([name]) => name))
+            : state.chordCatalog;
+          state.scenes = Array.from({ length: state.scenes.length }, (_, index) => normalizeScene(preset.scenes?.[index], index));
+        } catch (error) {
+          console.warn("Could not load Skanker preset", error);
+        }
+      }
+
+      function applyUrlPresetIdentity() {
+        const params = new URLSearchParams(window.location.search);
+        const genre = params.get("dp_genre");
+        const preset = params.get("dp_preset");
+        if (!genre || !preset || !DRUM_PRESETS[genre]?.patterns[preset]) return;
+        state.drumPresetGenre = genre;
+        state.activeDrumPreset = { genre, preset };
+      }
+
+      function renderScenes() {
+        el.sceneTabs.replaceChildren();
+        el.sceneLoopToggle.checked = state.loopActiveScene;
+        state.scenes.forEach((scene, index) => {
+          const row = document.createElement("div");
+          row.className = "scene-tab-row";
+          row.dataset.sceneIndex = String(index);
+
+          const tab = document.createElement("button");
+          tab.type = "button";
+          tab.draggable = true;
+          const slotLabel = index === 9 ? "0" : String(index + 1);
+          tab.textContent = `${slotLabel}: ${scene.name}`;
+          tab.classList.toggle("active", index === state.currentScene);
+          tab.classList.toggle("pending", index === state.pendingScene);
+          tab.addEventListener("click", () => selectScene(index));
+          tab.addEventListener("dblclick", () => {
+            const nextName = promptBlocking("Scene name", scene.name);
+            if (nextName && nextName.trim()) {
+              scene.name = nextName.trim();
+              savePreset();
+              renderScenes();
+            }
+          });
+          tab.addEventListener("dragstart", (event) => {
+            draggedSceneIndex = index;
+            row.classList.add("dragging");
+            event.dataTransfer.effectAllowed = "copy";
+            event.dataTransfer.setData("text/plain", `scene:${index}`);
+          });
+          tab.addEventListener("dragend", () => {
+            draggedSceneIndex = null;
+            document.querySelectorAll(".scene-tab-row.dragging, .scene-tab-row.drag-over").forEach((node) => {
+              node.classList.remove("dragging", "drag-over");
+            });
+          });
+          row.addEventListener("dragover", (event) => {
+            if (draggedSceneIndex === null || draggedSceneIndex === index) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            row.classList.add("drag-over");
+          });
+          row.addEventListener("dragleave", () => {
+            row.classList.remove("drag-over");
+          });
+          row.addEventListener("drop", (event) => {
+            event.preventDefault();
+            row.classList.remove("drag-over");
+            if (draggedSceneIndex === null || draggedSceneIndex === index) return;
+            cloneSceneToSlot(draggedSceneIndex, index);
+            draggedSceneIndex = null;
+          });
+
+          const moveUp = document.createElement("button");
+          moveUp.type = "button";
+          moveUp.className = "scene-move";
+          moveUp.textContent = "↑";
+          moveUp.disabled = index === 0;
+          moveUp.setAttribute("aria-label", `Move ${scene.name} earlier`);
+          moveUp.addEventListener("click", () => moveScene(index, index - 1));
+
+          const moveDown = document.createElement("button");
+          moveDown.type = "button";
+          moveDown.className = "scene-move";
+          moveDown.textContent = "↓";
+          moveDown.disabled = index === state.scenes.length - 1;
+          moveDown.setAttribute("aria-label", `Move ${scene.name} later`);
+          moveDown.addEventListener("click", () => moveScene(index, index + 1));
+
+          row.append(tab, moveUp, moveDown);
+          el.sceneTabs.append(row);
+        });
+
+        const clone = document.createElement("button");
+        clone.textContent = "+ Clone";
+        clone.disabled = state.scenes.every((scene, index) => index === state.currentScene || hasContent(scene));
+        clone.addEventListener("click", cloneCurrentScene);
+        el.sceneTabs.append(clone);
+
+        const deleteButton = document.createElement("button");
+        deleteButton.textContent = "Clear Scene";
+        deleteButton.disabled = !hasContent(currentScene());
+        deleteButton.addEventListener("click", clearCurrentScene);
+        el.sceneTabs.append(deleteButton);
+      }
+
+      function hasContent(scene) {
+        return scene.rhythm.some(Boolean)
+          || scene.harmony.some(Boolean)
+          || scene.bass.some(Boolean)
+          || TRACKS.some((track) => scene.drums[track.key].some(Boolean));
+      }
+
+      function selectScene(index, startIfStopped = false) {
+        const scene = state.scenes[index];
+        if (!scene) return;
+        if (state.isPlaying && index !== state.currentScene) {
+          state.pendingScene = index;
+          el.status.textContent = `Queued ${scene.name}`;
+        } else {
+          state.currentScene = index;
+          state.pendingScene = null;
+          releaseHarmony(audioContext?.currentTime || 0);
+        }
+        savePreset();
+        renderAll();
+        if (startIfStopped && !state.isPlaying) startPlayback();
+      }
+
+      function nextContentSceneIndex(fromIndex) {
+        for (let offset = 1; offset < state.scenes.length; offset += 1) {
+          const index = (fromIndex + offset) % state.scenes.length;
+          if (hasContent(state.scenes[index])) return index;
+        }
+        return fromIndex;
+      }
+
+      function advanceSceneSequence(time) {
+        if (state.loopActiveScene && state.pendingScene === null) return;
+        const target = state.pendingScene !== null
+          ? state.pendingScene
+          : nextContentSceneIndex(state.currentScene);
+        state.pendingScene = null;
+        if (target === state.currentScene) return;
+        state.currentScene = target;
+        releaseHarmony(time);
+        savePreset();
+        renderAll();
+      }
+
+      function cloneCurrentScene() {
+        const target = state.scenes.findIndex((scene, index) => index !== state.currentScene && !hasContent(scene));
+        if (target === -1) return;
+        state.scenes[target] = cloneSceneData(currentScene(), `${currentScene().name} copy`);
+        state.currentScene = target;
+        savePreset();
+        renderAll();
+      }
+
+      function cloneSceneData(source, name = source.name) {
+        return {
+          name,
+          rhythm: [...source.rhythm],
+          harmony: [...source.harmony],
+          bass: source.bass.map((note) => note ? { ...note } : null),
+          drums: Object.fromEntries(TRACKS.map((track) => [track.key, [...source.drums[track.key]]])),
+          mutes: {
+            rhythm: Boolean(source.mutes?.rhythm),
+            harmony: Boolean(source.mutes?.harmony),
+            bass: Boolean(source.mutes?.bass),
+            drums: Object.fromEntries(TRACKS.map((track) => [
+              track.key,
+              Boolean(source.mutes?.drums?.[track.key]),
+            ])),
+          },
+          trackVolumes: { ...source.trackVolumes },
+        };
+      }
+
+      function cloneSceneToSlot(sourceIndex, targetIndex) {
+        if (sourceIndex === targetIndex) return;
+        const source = state.scenes[sourceIndex];
+        const target = state.scenes[targetIndex];
+        if (!source || !target) return;
+        if (hasContent(target) && !confirmBlocking(`Replace ${target.name} with a clone of ${source.name}?`)) return;
+        state.scenes[targetIndex] = cloneSceneData(source, source.name);
+        if (!state.isPlaying) state.currentScene = targetIndex;
+        savePreset();
+        renderAll();
+      }
+
+      function reindexSceneNames() {
+        state.scenes.forEach((scene, index) => {
+          if (/^Scene \d+$/.test(scene.name)) scene.name = `Scene ${index + 1}`;
+        });
+      }
+
+      function remapMovedIndex(value, fromIndex, toIndex) {
+        if (value === null || value === undefined) return value;
+        if (value === fromIndex) return toIndex;
+        if (fromIndex < toIndex && value > fromIndex && value <= toIndex) return value - 1;
+        if (fromIndex > toIndex && value >= toIndex && value < fromIndex) return value + 1;
+        return value;
+      }
+
+      function moveScene(fromIndex, toIndex) {
+        if (toIndex < 0 || toIndex >= state.scenes.length || fromIndex === toIndex) return;
+        moveArrayItem(state.scenes, fromIndex, toIndex);
+        state.currentScene = remapMovedIndex(state.currentScene, fromIndex, toIndex);
+        state.pendingScene = remapMovedIndex(state.pendingScene, fromIndex, toIndex);
+        reindexSceneNames();
+        savePreset();
+        renderAll();
+      }
+
+      function clearCurrentScene() {
+        const scene = currentScene();
+        if (!hasContent(scene)) return;
+        if (!confirmBlocking(`Clear ${scene.name}? This removes its chords, bassline, and drums but keeps the scene slot.`)) return;
+        const clearingScene = state.currentScene;
+        state.scenes[clearingScene] = createBlankScene(clearingScene);
+        if (state.pendingScene === clearingScene) state.pendingScene = null;
+        releaseHarmony(audioContext?.currentTime || 0);
+        savePreset();
+        renderAll();
+      }
+
+      function moveArrayItem(items, fromIndex, toIndex) {
+        if (fromIndex === toIndex) return;
+        const [item] = items.splice(fromIndex, 1);
+        items.splice(toIndex, 0, item);
+      }
+
+      function moveChordStep(fromStep, toStep) {
+        const scene = currentScene();
+        moveArrayItem(scene.rhythm, fromStep, toStep);
+        moveArrayItem(scene.harmony, fromStep, toStep);
+        savePreset();
+        renderAll();
+      }
+
+      function moveBassStepEvents(events, fromStep, toStep) {
+        events.forEach((event) => {
+          const step = bassEventStep(event);
+          const subTick = event.tick % BASS_TICKS_PER_STEP;
+          let nextStep = step;
+          if (step === fromStep) nextStep = toStep;
+          else if (fromStep < toStep && step > fromStep && step <= toStep) nextStep = step - 1;
+          else if (fromStep > toStep && step >= toStep && step < fromStep) nextStep = step + 1;
+          event.tick = nextStep * BASS_TICKS_PER_STEP + subTick;
+        });
+        sortAndTrimBassEvents(events);
+      }
+
+      function bindStepDrag(cell, dragData, onMove) {
+        cell.draggable = true;
+        cell.addEventListener("dragstart", (event) => {
+          if (event.target.closest("input")) {
+            event.preventDefault();
+            return;
+          }
+          draggedStep = dragData;
+          cell.classList.add("dragging");
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", `${dragData.type}:${dragData.trackKey || "chords"}:${dragData.step}`);
+        });
+        cell.addEventListener("dragend", () => {
+          draggedStep = null;
+          document.querySelectorAll(".dragging, .drag-over").forEach((node) => node.classList.remove("dragging", "drag-over"));
+        });
+        cell.addEventListener("dragover", (event) => {
+          if (!draggedStep || draggedStep.type !== dragData.type || draggedStep.trackKey !== dragData.trackKey) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          cell.classList.add("drag-over");
+        });
+        cell.addEventListener("dragleave", () => {
+          cell.classList.remove("drag-over");
+        });
+        cell.addEventListener("drop", (event) => {
+          event.preventDefault();
+          cell.classList.remove("drag-over");
+          if (!draggedStep || draggedStep.type !== dragData.type || draggedStep.trackKey !== dragData.trackKey) return;
+          onMove(draggedStep.step, dragData.step);
+          draggedStep = null;
+          suppressNextStepClick = true;
+          window.setTimeout(() => suppressNextStepClick = false, 0);
+        });
+      }
+
+      function usedChordNames() {
+        const names = new Set(Object.keys(state.chordCatalog));
+        state.scenes.forEach((scene) => {
+          [...scene.rhythm, ...scene.harmony].forEach((value) => {
+            const key = chordName(value);
+            if (key) names.add(key);
+          });
+        });
+        return [...names].sort();
+      }
+
+      function openCatalog() {
+        renderCatalogRows();
+        if (typeof el.catalogDialog.showModal === "function") {
+          el.catalogDialog.showModal();
+        } else {
+          el.catalogDialog.setAttribute("open", "");
+        }
+      }
+
+      function closeCatalog() {
+        el.catalogDialog.close();
+      }
+
+      function openSoundCatalog() {
+        renderSoundCatalog();
+        if (typeof el.soundDialog.showModal === "function") {
+          el.soundDialog.showModal();
+        } else {
+          el.soundDialog.setAttribute("open", "");
+        }
+      }
+
+      function closeSoundCatalog() {
+        el.soundDialog.close();
+      }
+
+      function openBassEditor() {
+        renderBassEditor();
+        if (typeof el.bassEditorDialog.showModal === "function") {
+          el.bassEditorDialog.showModal();
+        } else {
+          el.bassEditorDialog.setAttribute("open", "");
+        }
+      }
+
+      function closeBassEditor() {
+        el.bassEditorDialog.close();
+      }
+
+      function openChordEditor() {
+        renderChordEditor();
+        if (typeof el.chordEditorDialog.showModal === "function") {
+          el.chordEditorDialog.showModal();
+        } else {
+          el.chordEditorDialog.setAttribute("open", "");
+        }
+      }
+
+      function closeChordEditor() {
+        el.chordEditorDialog.close();
+      }
+
+      function renderCatalogRows(extraRows = []) {
+        el.catalogRows.replaceChildren();
+        const head = document.createElement("div");
+        head.className = "catalog-table-head";
+        head.innerHTML = "<span>Chord</span><span>Notes</span><span>Action</span>";
+        el.catalogRows.append(head);
+        [...usedChordNames(), ...extraRows].forEach((name) => addCatalogRow(name, state.chordCatalog[name] || ""));
+      }
+
+      function addCatalogRow(name = "", notes = "") {
+        const row = document.createElement("div");
+        row.className = "catalog-row";
+        row.innerHTML = `
+          <input data-catalog-name value="${escapeAttr(chordName(name))}" aria-label="Chord name" />
+          <input data-catalog-notes value="${escapeAttr(notes)}" aria-label="Chord notes" />
+          <button type="button">Remove</button>
+        `;
+        row.querySelector("[data-catalog-name]").addEventListener("blur", (event) => {
+          event.target.value = chordName(event.target.value);
+          updateCatalogValidity();
+        });
+        row.querySelectorAll("input").forEach((input) => {
+          input.addEventListener("input", updateCatalogValidity);
+        });
+        row.querySelector("button").addEventListener("click", () => {
+          row.remove();
+          updateCatalogValidity();
+        });
+        el.catalogRows.append(row);
+        updateCatalogValidity();
+      }
+
+      function saveCatalog() {
+        const nextCatalog = {};
+        el.catalogRows.querySelectorAll(".catalog-row").forEach((row) => {
+          const rawName = row.querySelector("[data-catalog-name]").value;
+          if (isInvalidCatalogName(rawName)) return;
+          const name = chordName(rawName);
+          if (row.querySelector("[data-catalog-name]").dataset.duplicate === "true") return;
+          const notes = row.querySelector("[data-catalog-notes]").value.trim().toLowerCase();
+          if (!name || !parseNoteList(notes)) return;
+          nextCatalog[name] = notes;
+        });
+        state.chordCatalog = nextCatalog;
+        savePreset();
+        renderChordGrid();
+        closeCatalog();
+      }
+
+      function saveCurrentUserChordPreset(name) {
+        const normalizedName = name.trim();
+        if (!normalizedName) {
+          el.status.textContent = "Name progression before saving";
+          return;
+        }
+        const existingIndex = state.userChordPresets.findIndex((preset) => preset.name.toLowerCase() === normalizedName.toLowerCase());
+        const existingPreset = existingIndex >= 0 ? state.userChordPresets[existingIndex] : null;
+        const pattern = currentChordPattern();
+        const now = new Date().toISOString();
+        const preset = normalizeUserChordPreset({
+          id: existingPreset?.id || `${normalizedName}-${Date.now()}`,
+          name: normalizedName,
+          createdAt: existingPreset?.createdAt || now,
+          updatedAt: now,
+          rhythm: pattern.rhythm,
+          harmony: pattern.harmony,
+          chordCatalog: pattern.chordCatalog,
+        });
+        if (!preset) return;
+        if (existingIndex >= 0) {
+          state.userChordPresets.splice(existingIndex, 1, preset);
+        } else {
+          state.userChordPresets.push(preset);
+        }
+        state.activeChordPreset = { type: "user", preset: preset.id };
+        state.userChordPresetExport = "";
+        saveUserChordPresets();
+        savePreset();
+        renderAll();
+      }
+
+      function loadUserChordPreset(id) {
+        const preset = state.userChordPresets.find((entry) => entry.id === id);
+        if (!preset) return;
+        const scene = currentScene();
+        scene.rhythm = fixedLengthArray(preset.rhythm, "", CHORD_STEPS).map((value) => String(value || "").trim());
+        scene.harmony = fixedLengthArray(preset.harmony, "", CHORD_STEPS).map((value) => String(value || "").trim());
+        state.chordCatalog = { ...state.chordCatalog, ...preset.chordCatalog };
+        state.activeChordPreset = { type: "user", preset: preset.id };
+        savePreset();
+        renderAll();
+      }
+
+      function deleteUserChordPreset(id) {
+        const index = state.userChordPresets.findIndex((preset) => preset.id === id);
+        if (index < 0) return;
+        state.userChordPresets.splice(index, 1);
+        if (state.activeChordPreset?.type === "user" && state.activeChordPreset.preset === id) {
+          state.activeChordPreset = null;
+        }
+        state.userChordPresetExport = "";
+        saveUserChordPresets();
+        savePreset();
+        renderAll();
+      }
+
+      function renderChordPresetPanel() {
+        el.chordPresetPanel.replaceChildren();
+        el.chordPresetPanel.classList.toggle("open", state.chordPresetPanelOpen);
+        el.chordPresetsToggle.classList.toggle("active", state.chordPresetPanelOpen);
+        if (!state.chordPresetPanelOpen) return;
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "user-preset-tools";
+
+        const title = document.createElement("h3");
+        title.textContent = "My Progressions";
+
+        const description = document.createElement("p");
+        description.className = "preset-description";
+        description.textContent = "Save the current Rhythm and Harmony grid separately from drums, then load it with any rhythm pattern later.";
+
+        const actions = document.createElement("div");
+        actions.className = "user-preset-actions";
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.placeholder = "Name this progression";
+        nameInput.autocomplete = "off";
+
+        const saveButton = document.createElement("button");
+        saveButton.type = "button";
+        saveButton.textContent = "Save Current";
+        saveButton.addEventListener("click", () => saveCurrentUserChordPreset(nameInput.value));
+        nameInput.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") saveCurrentUserChordPreset(nameInput.value);
+        });
+
+        const exportButton = document.createElement("button");
+        exportButton.type = "button";
+        exportButton.textContent = "Export JSON";
+        exportButton.addEventListener("click", () => {
+          state.userChordPresetExport = JSON.stringify(userChordPresetExportPayload(), null, 2);
+          renderChordPresetPanel();
+        });
+
+        actions.append(nameInput, saveButton, exportButton);
+
+        const list = document.createElement("div");
+        list.className = "user-preset-list";
+        if (!state.userChordPresets.length) {
+          const emptyState = document.createElement("span");
+          emptyState.className = "hint";
+          emptyState.textContent = "Save hand-built progressions here before promoting the best ones into built-in presets.";
+          list.append(emptyState);
+        } else {
+          state.userChordPresets.forEach((preset) => {
+            const loadButton = document.createElement("button");
+            loadButton.type = "button";
+            loadButton.textContent = preset.name;
+            loadButton.classList.toggle("active", state.activeChordPreset?.type === "user" && state.activeChordPreset.preset === preset.id);
+            loadButton.addEventListener("click", () => loadUserChordPreset(preset.id));
+
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.textContent = "Delete";
+            deleteButton.setAttribute("aria-label", `Delete ${preset.name}`);
+            deleteButton.addEventListener("click", () => deleteUserChordPreset(preset.id));
+
+            list.append(loadButton, deleteButton);
+          });
+        }
+
+        wrapper.append(title, description, actions, list);
+
+        if (state.userChordPresetExport) {
+          const exportText = document.createElement("textarea");
+          exportText.className = "user-preset-export";
+          exportText.readOnly = true;
+          exportText.value = state.userChordPresetExport;
+          wrapper.append(exportText);
+        }
+
+        el.chordPresetPanel.append(wrapper);
+      }
+
+      function updateCatalogRowValidity(row) {
+        const nameInput = row.querySelector("[data-catalog-name]");
+        const notesInput = row.querySelector("[data-catalog-notes]");
+        const invalidName = isInvalidCatalogName(nameInput.value);
+        const duplicateName = nameInput.dataset.duplicate === "true";
+        const invalidNotes = Boolean(notesInput.value.trim()) && !parseNoteList(notesInput.value);
+        nameInput.classList.toggle("invalid", invalidName || duplicateName);
+        nameInput.toggleAttribute("aria-invalid", invalidName || duplicateName);
+        notesInput.classList.toggle("invalid", invalidNotes);
+        notesInput.toggleAttribute("aria-invalid", invalidNotes);
+        nameInput.title = duplicateName
+          ? "Duplicate chord name. Keep only one row for this chord."
+          : (invalidName ? "Enter a chord name like C, Cm7b5, or Cmaj7." : "");
+        notesInput.title = invalidNotes ? "Use comma-separated lowercase note names like g3,c4,eb4." : "";
+      }
+
+      function updateCatalogValidity() {
+        const rows = [...el.catalogRows.querySelectorAll(".catalog-row")];
+        const counts = new Map();
+        rows.forEach((row) => {
+          const name = chordName(row.querySelector("[data-catalog-name]").value);
+          if (name && !isInvalidCatalogName(name)) counts.set(name, (counts.get(name) || 0) + 1);
+        });
+        rows.forEach((row) => {
+          const nameInput = row.querySelector("[data-catalog-name]");
+          const name = chordName(nameInput.value);
+          nameInput.dataset.duplicate = name && counts.get(name) > 1 ? "true" : "false";
+          updateCatalogRowValidity(row);
+        });
+      }
+
+      function renderChordGrid() {
+        el.chordGrid.replaceChildren();
+        const scene = currentScene();
+        el.rhythmMute.checked = Boolean(scene.mutes?.rhythm);
+        el.harmonyMute.checked = Boolean(scene.mutes?.harmony);
+        for (let step = 0; step < CHORD_STEPS; step += 1) {
+          const cell = document.createElement("div");
+          cell.className = "chord-cell";
+          cell.classList.toggle("beat", step % 4 === 0);
+          cell.classList.toggle("playing", step === state.playhead);
+          cell.dataset.step = String(step);
+          cell.innerHTML = `
+            <span class="step-number">${step + 1}</span>
+            <label class="layer-row rhythm">
+              <input class="chord-input ${scene.rhythm[step] && !parseChord(scene.rhythm[step]) ? "invalid" : ""}" data-layer="rhythm" aria-label="Rhythm chord step ${step + 1}" value="${escapeAttr(scene.rhythm[step])}" />
+            </label>
+            <label class="layer-row harmony">
+              <input class="chord-input ${scene.harmony[step] && !parseChord(scene.harmony[step]) ? "invalid" : ""}" data-layer="harmony" aria-label="Harmony chord step ${step + 1}" value="${escapeAttr(scene.harmony[step])}" />
+            </label>
+          `;
+          cell.querySelectorAll(".chord-input").forEach((input) => bindChordInput(input, step));
+          bindStepDrag(cell, { type: "chords", trackKey: "", step }, moveChordStep);
+          el.chordGrid.append(cell);
+        }
+      }
+
+      function bindChordInput(input, step) {
+        const scene = currentScene();
+        const layer = input.dataset.layer;
+        let committedValue = scene[layer][step];
+        updateChordInputValidity(input);
+        input.addEventListener("input", () => {
+          scene[layer][step] = input.value.trim();
+          savePreset();
+          updateChordInputValidity(input);
+        });
+        input.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") input.blur();
+          if (event.key === "Escape") {
+            input.value = committedValue;
+            scene[layer][step] = committedValue;
+            savePreset();
+            updateChordInputValidity(input);
+            input.blur();
+          }
+        });
+        input.addEventListener("blur", () => {
+          const rawValue = input.value.trim();
+          const [chordPart, voicingPart] = rawValue.split("=").map((part) => part.trim());
+          const value = voicingPart === undefined
+            ? chordName(chordPart)
+            : `${chordName(chordPart)}=${voicingPart.toLowerCase()}`;
+          const parsed = parseChord(value);
+          committedValue = value && parsed ? parsed.label : value;
+          scene[layer][step] = committedValue;
+          input.value = committedValue;
+          savePreset();
+          updateChordInputValidity(input);
+        });
+      }
+
+      function updateChordInputValidity(input) {
+        const invalid = Boolean(input.value.trim()) && !parseChord(input.value);
+        input.classList.toggle("invalid", invalid);
+        input.toggleAttribute("aria-invalid", invalid);
+        input.title = invalid ? "This entry is editable but will not play until it is a supported chord or explicit voicing." : "";
+      }
+
+      function renderBassRoll() {
+        const roll = document.querySelector("[data-bassline-roll]");
+        if (!roll) return;
+        const scene = currentScene();
+        const events = normalizeBassEvents(scene.bass);
+        const midiValues = events.map((event) => event.midi);
+        const minMidi = midiValues.length ? Math.min(...midiValues) : bassMidiForOffset(0);
+        const maxMidi = midiValues.length ? Math.max(...midiValues) : bassMidiForOffset(12);
+        const midiRange = Math.max(1, maxMidi - minMidi);
+        roll.replaceChildren();
+        events.forEach((event) => {
+          const note = document.createElement("span");
+          note.className = "bassline-roll-note";
+          note.style.left = `${(event.tick / BASS_TICKS) * 100}%`;
+          note.style.width = `${Math.max(1.5, (event.length / BASS_TICKS) * 100)}%`;
+          note.style.top = `${80 - ((event.midi - minMidi) / midiRange) * 68}%`;
+          note.title = `${bassNoteLabel(event)} step ${bassEventStep(event) + 1}`;
+          roll.append(note);
+        });
+        if (state.playhead >= 0) {
+          const playhead = document.createElement("span");
+          playhead.className = "bassline-roll-playhead";
+          playhead.style.left = `${((state.playhead % STEPS) / STEPS) * 100}%`;
+          roll.append(playhead);
+        }
+      }
+
+      function renderBassEditor() {
+        const editor = document.querySelector("[data-bass-editor]");
+        if (!editor) return;
+        editor.replaceChildren();
+        const scene = currentScene();
+
+        const head = document.createElement("div");
+        head.className = "bass-editor-head";
+        head.innerHTML = `
+          <strong>Bass Editor</strong>
+          <span class="drum-pattern-help">Notes must match pattern starts exactly. x starts a note, _ sustains after a note, _ after silence starts the next note, and - rests.</span>
+        `;
+
+        const fields = document.createElement("div");
+        fields.className = "bass-editor-fields";
+        fields.innerHTML = Array.from({ length: BASS_EDITOR_PARTS }, (_, partIndex) => {
+          const tickOffset = partIndex * BASS_EDITOR_PART_TICKS;
+          const startStep = Math.floor(tickOffset / BASS_TICKS_PER_STEP) + 1;
+          const endStep = Math.floor((tickOffset + BASS_EDITOR_PART_TICKS - 1) / BASS_TICKS_PER_STEP) + 1;
+          return `
+            <section class="bass-editor-part" data-bass-editor-part="${partIndex}">
+              <div class="bass-editor-part-head">
+                <strong>Part ${partIndex + 1}</strong>
+                <span class="bass-editor-stats"></span>
+                <span class="drum-pattern-help">Steps ${startStep}-${endStep}</span>
+              </div>
+              <label>Notes
+                <span class="bass-text-overlay-wrap">
+                  <span class="bass-notes-preview bass-text-preview" aria-hidden="true"></span>
+                  <input class="bass-notes-input" data-tick-offset="${tickOffset}" value="${escapeAttr(formatBassNotes(scene.bass, partIndex))}" spellcheck="false" placeholder="c2 g2 bb2 a2" />
+                </span>
+              </label>
+              <label>Pattern
+                <span class="bass-text-overlay-wrap">
+                  <span class="bass-pattern-preview bass-text-preview" aria-hidden="true"></span>
+                  <input class="bass-pattern-input" value="${escapeAttr(formatBassPatternPart(scene.bass, partIndex))}" spellcheck="false" placeholder="x--- ---- x--- ----" />
+                </span>
+              </label>
+            </section>
+          `;
+        }).join("");
+
+        fields.querySelectorAll("[data-bass-editor-part]").forEach((part) => {
+          const tickOffset = Number(part.querySelector(".bass-notes-input").dataset.tickOffset) || 0;
+          const notesInput = part.querySelector(".bass-notes-input");
+          const notesPreview = part.querySelector(".bass-notes-preview");
+          const patternInput = part.querySelector(".bass-pattern-input");
+          const patternPreview = part.querySelector(".bass-pattern-preview");
+          const stats = part.querySelector(".bass-editor-stats");
+          const syncPreviewScroll = () => {
+            notesPreview.scrollLeft = notesInput.scrollLeft;
+            patternPreview.scrollLeft = patternInput.scrollLeft;
+          };
+          const syncEditor = () => {
+            updateBassEditorFromParts(fields);
+            renderBassNotesPreview(notesPreview, notesInput.value, patternInput.value, tickOffset, BASS_EDITOR_PART_TICKS);
+            renderBassEditorPreview(patternPreview, patternInput.value, tickOffset, BASS_EDITOR_PART_TICKS);
+            syncPreviewScroll();
+          };
+          notesInput.addEventListener("input", syncEditor);
+          notesInput.addEventListener("scroll", syncPreviewScroll);
+          notesInput.addEventListener("select", syncPreviewScroll);
+          notesInput.addEventListener("blur", () => {
+            notesInput.value = normalizeBassNotesText(notesInput.value);
+            syncEditor();
+          });
+          patternInput.addEventListener("input", syncEditor);
+          patternInput.addEventListener("scroll", syncPreviewScroll);
+          patternInput.addEventListener("select", syncPreviewScroll);
+          updateBassEditorPartValidity(notesInput, patternInput, stats);
+          renderBassNotesPreview(notesPreview, notesInput.value, patternInput.value, tickOffset, BASS_EDITOR_PART_TICKS);
+          renderBassEditorPreview(patternPreview, patternInput.value, tickOffset, BASS_EDITOR_PART_TICKS);
+        });
+
+        editor.append(head, fields);
+      }
+
+      function bassActiveNoteIndex(rawPattern, activeTick, maxTicks = BASS_TICKS) {
+        const pattern = parseBassPattern(rawPattern, maxTicks) || [];
+        if (activeTick < 0) return -1;
+        if (activeTick >= pattern.length) return -1;
+        let hasActiveNote = false;
+        let noteIndex = -1;
+        for (let tick = 0; tick <= activeTick && tick < pattern.length; tick += 1) {
+          const symbol = pattern[tick];
+          if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveNote)) {
+            noteIndex += 1;
+            hasActiveNote = true;
+          } else if (symbol !== "_") {
+            hasActiveNote = false;
+          }
+        }
+        return hasActiveNote ? noteIndex : -1;
+      }
+
+      function renderBassNotesPreview(preview, rawNotes, rawPattern = formatBassPattern(currentScene().bass), tickOffset = 0, maxTicks = BASS_TICKS) {
+        if (!preview) return;
+        preview.replaceChildren();
+        const pattern = parseBassPattern(rawPattern, maxTicks);
+        const expectedNotes = pattern ? bassPatternNoteStartCount(pattern) : 0;
+        const bassPlayhead = state.playhead >= 0 ? state.playhead % STEPS : state.playhead;
+        const activeNoteIndex = bassActiveNoteIndex(rawPattern, bassPlayhead * BASS_TICKS_PER_STEP - tickOffset, maxTicks);
+        let noteIndex = 0;
+        const parts = String(rawNotes || "").match(/\s+|\S+/g) || [];
+        parts.forEach((part) => {
+          if (/^\s+$/.test(part)) {
+            preview.append(document.createTextNode(part));
+            return;
+          }
+          const cell = document.createElement("span");
+          cell.textContent = part;
+          if (!parseNoteName(part)) {
+            cell.classList.add("invalid");
+          } else if (noteIndex >= expectedNotes) {
+            cell.classList.add("extra");
+          } else {
+            cell.classList.add("on");
+          }
+          cell.classList.toggle("playing", noteIndex === activeNoteIndex);
+          preview.append(cell);
+          noteIndex += 1;
+        });
+      }
+
+      function renderBassEditorPreview(preview, rawPattern = formatBassPattern(currentScene().bass), tickOffset = 0, maxTicks = BASS_TICKS) {
+        if (!preview) return;
+        preview.replaceChildren();
+        const raw = String(rawPattern || "");
+        const bassPlayhead = state.playhead >= 0 ? state.playhead % STEPS : state.playhead;
+        const activeTick = bassPlayhead * BASS_TICKS_PER_STEP - tickOffset;
+        let hasActiveNote = false;
+        let tick = 0;
+        [...raw].forEach((char) => {
+          if (/[\s|]/.test(char)) {
+            preview.append(document.createTextNode(char));
+            return;
+          }
+          const cell = document.createElement("span");
+          cell.textContent = char;
+          const symbol = char === "." || char === "0" ? "-" : char;
+          if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveNote)) {
+            cell.classList.add(symbol === "X" ? "accent" : "on");
+            hasActiveNote = true;
+          } else if (symbol === "_") {
+            cell.classList.add("sustain");
+          } else if (symbol === "-") {
+            cell.classList.add("rest");
+            hasActiveNote = false;
+          }
+          cell.classList.toggle("playing", activeTick >= 0 && tick >= activeTick && tick < activeTick + BASS_TICKS_PER_STEP);
+          cell.ariaLabel = `Bass pattern tick ${tick + 1}${cell.classList.contains("playing") ? " playing" : ""}`;
+          preview.append(cell);
+          tick += 1;
+        });
+      }
+
+      function renderBassEditorPlayhead() {
+        document.querySelectorAll("[data-bass-editor-part]").forEach((part) => {
+          const notesInput = part.querySelector(".bass-notes-input");
+          const notesPreview = part.querySelector(".bass-notes-preview");
+          const patternInput = part.querySelector(".bass-pattern-input");
+          const preview = part.querySelector(".bass-pattern-preview");
+          const tickOffset = Number(notesInput?.dataset.tickOffset) || 0;
+          renderBassNotesPreview(notesPreview, notesInput?.value, patternInput?.value, tickOffset, BASS_EDITOR_PART_TICKS);
+          renderBassEditorPreview(preview, patternInput?.value, tickOffset, BASS_EDITOR_PART_TICKS);
+          if (notesPreview && notesInput) notesPreview.scrollLeft = notesInput.scrollLeft;
+          if (preview && patternInput) preview.scrollLeft = patternInput.scrollLeft;
+        });
+      }
+
+      function chordActivePoolIndex(rawPattern, activeStep, maxSteps = CHORD_EDITOR_PART_STEPS) {
+        const pattern = parseChordPattern(rawPattern, maxSteps) || [];
+        if (activeStep < 0 || activeStep >= pattern.length) return -1;
+        let hasActiveChord = false;
+        let chordIndex = -1;
+        for (let step = 0; step <= activeStep && step < pattern.length; step += 1) {
+          const symbol = pattern[step];
+          if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveChord)) {
+            chordIndex += 1;
+            hasActiveChord = true;
+          } else if (symbol !== "_") {
+            hasActiveChord = false;
+          }
+        }
+        return hasActiveChord ? chordIndex : -1;
+      }
+
+      function renderChordPoolPreview(preview, rawChords, rawPattern, stepOffset = 0, maxSteps = CHORD_EDITOR_PART_STEPS) {
+        if (!preview) return;
+        preview.replaceChildren();
+        const pattern = parseChordPattern(rawPattern, maxSteps);
+        const expectedChords = pattern ? chordPatternStats(pattern).pulses : 0;
+        const activeChordIndex = chordActivePoolIndex(rawPattern, state.playhead - stepOffset, maxSteps);
+        let chordIndex = 0;
+        const parts = String(rawChords || "").match(/\s+|\S+/g) || [];
+        parts.forEach((part) => {
+          if (/^\s+$/.test(part)) {
+            preview.append(document.createTextNode(part));
+            return;
+          }
+          const cell = document.createElement("span");
+          cell.textContent = part;
+          if (!parseChord(part)) {
+            cell.classList.add("invalid");
+          } else if (chordIndex >= expectedChords) {
+            cell.classList.add("extra");
+          } else {
+            cell.classList.add("on");
+          }
+          cell.classList.toggle("playing", chordIndex === activeChordIndex);
+          preview.append(cell);
+          chordIndex += 1;
+        });
+      }
+
+      function renderChordPatternPreview(preview, rawPattern, stepOffset = 0, maxSteps = CHORD_EDITOR_PART_STEPS) {
+        if (!preview) return;
+        preview.replaceChildren();
+        const raw = String(rawPattern || "");
+        const activeStep = state.playhead - stepOffset;
+        let hasActiveChord = false;
+        let step = 0;
+        [...raw].forEach((char) => {
+          if (/[\s|]/.test(char)) {
+            preview.append(document.createTextNode(char));
+            return;
+          }
+          const cell = document.createElement("span");
+          cell.textContent = char;
+          const symbol = char === "." || char === "0" ? "-" : char;
+          if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveChord)) {
+            cell.classList.add(symbol === "X" ? "accent" : "on");
+            hasActiveChord = true;
+          } else if (symbol === "_") {
+            cell.classList.add("sustain");
+          } else if (symbol === "-") {
+            cell.classList.add("rest");
+            hasActiveChord = false;
+          }
+          cell.classList.toggle("playing", activeStep === step);
+          preview.append(cell);
+          step += 1;
+        });
+      }
+
+      function updateChordEditorLayerValidity(layerEl) {
+        const poolInput = layerEl.querySelector(".chord-pool-input");
+        const patternInput = layerEl.querySelector(".chord-pattern-input");
+        const statsEl = layerEl.querySelector(".bass-editor-stats");
+        const chords = parseChordPool(poolInput.value);
+        const pattern = parseChordPattern(patternInput.value, CHORD_EDITOR_PART_STEPS);
+        const stats = pattern ? chordPatternStats(pattern) : { pulses: 0, sustains: 0, rests: 0, steps: 0 };
+        const invalidPool = chords === null || (pattern !== null && chords.length !== stats.pulses);
+        poolInput.classList.toggle("invalid", invalidPool);
+        poolInput.toggleAttribute("aria-invalid", invalidPool);
+        patternInput.classList.toggle("invalid", pattern === null);
+        patternInput.toggleAttribute("aria-invalid", pattern === null);
+        poolInput.title = invalidPool
+          ? `Enter exactly ${stats.pulses} chord${stats.pulses === 1 ? "" : "s"} for this pattern.`
+          : "";
+        patternInput.title = pattern === null
+          ? `Use X, x, _, and - for up to ${CHORD_EDITOR_PART_STEPS} steps. Spaces, ., and 0 are allowed separators/rests.`
+          : "";
+        if (statsEl) {
+          statsEl.textContent = `chords ${chords?.length ?? 0}/${stats.pulses} | pulses ${stats.pulses} | sustains ${stats.sustains} | rests ${stats.rests} | steps ${stats.steps}/${CHORD_EDITOR_PART_STEPS}`;
+        }
+        return {
+          layer: layerEl.dataset.chordLayer,
+          partIndex: Number(layerEl.closest("[data-chord-editor-part]")?.dataset.chordEditorPart) || 0,
+          slots: invalidPool || pattern === null ? null : chordPatternToSlots(poolInput.value, patternInput.value, CHORD_EDITOR_PART_STEPS),
+        };
+      }
+
+      function updateChordEditorFromParts(editor) {
+        const layerEls = [...editor.querySelectorAll("[data-chord-layer]")];
+        const results = layerEls.map(updateChordEditorLayerValidity);
+        if (results.some((result) => !result.slots)) return;
+        const scene = currentScene();
+        CHORD_EDITOR_LAYERS.forEach((layer) => {
+          const values = Array(CHORD_STEPS).fill("");
+          results
+            .filter((result) => result.layer === layer.key)
+            .forEach((result) => {
+              const stepOffset = result.partIndex * CHORD_EDITOR_PART_STEPS;
+              result.slots.forEach((value, index) => {
+                values[stepOffset + index] = value;
+              });
+            });
+          scene[layer.key] = values;
+        });
+        savePreset();
+        renderChordGrid();
+      }
+
+      function renderChordEditor() {
+        const editor = document.querySelector("[data-chord-editor]");
+        if (!editor) return;
+        editor.replaceChildren();
+        const scene = currentScene();
+        const head = document.createElement("div");
+        head.className = "bass-editor-head";
+        head.innerHTML = `
+          <strong>Chord/Harmony Pattern Editor</strong>
+          <span class="drum-pattern-help">Each layer uses a chord pool plus x/_/- pattern. Both halves must be valid before the grid updates.</span>
+        `;
+        const fields = document.createElement("div");
+        fields.className = "bass-editor-fields";
+        fields.innerHTML = Array.from({ length: CHORD_EDITOR_PARTS }, (_, partIndex) => {
+          const stepOffset = partIndex * CHORD_EDITOR_PART_STEPS;
+          const startStep = stepOffset + 1;
+          const endStep = stepOffset + CHORD_EDITOR_PART_STEPS;
+          const layerHtml = CHORD_EDITOR_LAYERS.map((layer) => `
+            <section data-chord-layer="${layer.key}">
+              <div class="bass-editor-part-head">
+                <strong>${layer.label}</strong>
+                <span class="bass-editor-stats"></span>
+              </div>
+              <label>Chords
+                <span class="bass-text-overlay-wrap">
+                  <span class="chord-pool-preview bass-text-preview" aria-hidden="true"></span>
+                  <input class="chord-pool-input" value="${escapeAttr(formatChordPoolPart(scene[layer.key], partIndex))}" spellcheck="false" placeholder="Dm G C Am" />
+                </span>
+              </label>
+              <label>Pattern
+                <span class="bass-text-overlay-wrap">
+                  <span class="chord-pattern-preview bass-text-preview" aria-hidden="true"></span>
+                  <input class="chord-pattern-input" value="${escapeAttr(formatChordPatternPart(scene[layer.key], partIndex))}" spellcheck="false" placeholder="x--- ---- x--- ----" />
+                </span>
+              </label>
+            </section>
+          `).join("");
+          return `
+            <section class="bass-editor-part" data-chord-editor-part="${partIndex}">
+              <div class="bass-editor-part-head">
+                <strong>Part ${partIndex + 1}</strong>
+                <span class="drum-pattern-help">Steps ${startStep}-${endStep}</span>
+              </div>
+              ${layerHtml}
+            </section>
+          `;
+        }).join("");
+        fields.querySelectorAll("[data-chord-layer]").forEach((layerEl) => {
+          const partEl = layerEl.closest("[data-chord-editor-part]");
+          const stepOffset = (Number(partEl?.dataset.chordEditorPart) || 0) * CHORD_EDITOR_PART_STEPS;
+          const poolInput = layerEl.querySelector(".chord-pool-input");
+          const poolPreview = layerEl.querySelector(".chord-pool-preview");
+          const patternInput = layerEl.querySelector(".chord-pattern-input");
+          const patternPreview = layerEl.querySelector(".chord-pattern-preview");
+          const syncPreviewScroll = () => {
+            poolPreview.scrollLeft = poolInput.scrollLeft;
+            patternPreview.scrollLeft = patternInput.scrollLeft;
+          };
+          const syncEditor = () => {
+            updateChordEditorFromParts(fields);
+            renderChordPoolPreview(poolPreview, poolInput.value, patternInput.value, stepOffset);
+            renderChordPatternPreview(patternPreview, patternInput.value, stepOffset);
+            syncPreviewScroll();
+          };
+          poolInput.addEventListener("input", syncEditor);
+          poolInput.addEventListener("scroll", syncPreviewScroll);
+          poolInput.addEventListener("select", syncPreviewScroll);
+          patternInput.addEventListener("input", syncEditor);
+          patternInput.addEventListener("scroll", syncPreviewScroll);
+          patternInput.addEventListener("select", syncPreviewScroll);
+          updateChordEditorLayerValidity(layerEl);
+          renderChordPoolPreview(poolPreview, poolInput.value, patternInput.value, stepOffset);
+          renderChordPatternPreview(patternPreview, patternInput.value, stepOffset);
+        });
+        editor.append(head, fields);
+      }
+
+      function renderChordEditorPlayhead() {
+        document.querySelectorAll("[data-chord-layer]").forEach((layerEl) => {
+          const partEl = layerEl.closest("[data-chord-editor-part]");
+          const stepOffset = (Number(partEl?.dataset.chordEditorPart) || 0) * CHORD_EDITOR_PART_STEPS;
+          const poolInput = layerEl.querySelector(".chord-pool-input");
+          const poolPreview = layerEl.querySelector(".chord-pool-preview");
+          const patternInput = layerEl.querySelector(".chord-pattern-input");
+          const patternPreview = layerEl.querySelector(".chord-pattern-preview");
+          renderChordPoolPreview(poolPreview, poolInput?.value, patternInput?.value, stepOffset);
+          renderChordPatternPreview(patternPreview, patternInput?.value, stepOffset);
+          if (poolPreview && poolInput) poolPreview.scrollLeft = poolInput.scrollLeft;
+          if (patternPreview && patternInput) patternPreview.scrollLeft = patternInput.scrollLeft;
+        });
+      }
+
+      function renderDrumGrid() {
+        el.drumGrid.replaceChildren();
+        const scene = currentScene();
+        const beatLabels = document.createElement("div");
+        beatLabels.className = "beat-label-row";
+        beatLabels.innerHTML = '<span class="beat-label-spacer" aria-hidden="true"></span>';
+        const labelSteps = document.createElement("div");
+        labelSteps.className = "step-grid";
+        for (let step = 0; step < DRUM_STEPS; step += 1) {
+          const label = document.createElement("span");
+          const subdivision = step % 4;
+          label.className = "beat-label";
+          label.classList.toggle("downbeat", subdivision === 0);
+          label.textContent = subdivision === 0 ? String((Math.floor(step / 4) % 4) + 1) : ["e", "+", "a"][subdivision - 1];
+          labelSteps.append(label);
+        }
+        beatLabels.append(labelSteps);
+        el.drumGrid.append(beatLabels);
+        const bassRow = document.createElement("div");
+        bassRow.className = "drum-row";
+        const bassHead = document.createElement("div");
+        bassHead.className = "track-head";
+        bassHead.innerHTML = `
+          <strong>Bass</strong>
+          <div class="bassline-roll" data-bassline-roll aria-hidden="true"></div>
+          <label class="track-mute-label">Mute <input type="checkbox" data-mute-bass ${scene.mutes?.bass ? "checked" : ""}></label>
+          <button type="button" data-open-bass-editor>Edit</button>
+          <button type="button" data-clear-bassline>Clear</button>
+        `;
+        bassHead.querySelector("[data-mute-bass]").addEventListener("change", (event) => {
+          scene.mutes.bass = event.target.checked;
+          savePreset();
+          applyVolumes();
+        });
+        bassHead.querySelector("[data-open-bass-editor]").addEventListener("click", openBassEditor);
+        bassHead.querySelector("[data-clear-bassline]").addEventListener("click", () => {
+          if (!scene.bass.length) return;
+          if (!confirmBlocking(`Clear bassline for ${scene.name}?`)) return;
+          scene.bass = [];
+          savePreset();
+          renderBassRoll();
+          renderBassEditor();
+        });
+        const bassHelp = document.createElement("div");
+        bassHelp.className = "bassline-help";
+        bassHelp.textContent = "Record mode overwrites the current fine pulse with the newest bass input.";
+        bassRow.append(bassHead, bassHelp);
+        el.drumGrid.append(bassRow);
+        renderBassRoll();
+        TRACKS.forEach((track) => {
+          const row = document.createElement("div");
+          row.className = "drum-row";
+
+          const head = document.createElement("div");
+          head.className = "track-head";
+          head.innerHTML = `
+            <strong>${track.label}</strong>
+            <span class="bass-text-overlay-wrap drum-pattern-overlay-wrap">
+              <span class="drum-pattern-preview bass-text-preview" aria-hidden="true"></span>
+              <input class="drum-pattern-input" value="${escapeAttr(formatDrumPattern(scene.drums[track.key]))}" aria-label="${track.label} text pattern" spellcheck="false" />
+            </span>
+            <label class="track-mute-label">Mute <input type="checkbox" data-mute-drum="${track.key}" ${scene.mutes?.drums?.[track.key] ? "checked" : ""}></label>
+            <label class="track-label drum-volume-label">Vol <input type="range" min="0" max="1" step="0.01" value="${scene.trackVolumes[track.key]}"></label>
+          `;
+          const patternInput = head.querySelector(".drum-pattern-input");
+          const patternPreview = head.querySelector(".drum-pattern-preview");
+          const patternWrap = head.querySelector(".drum-pattern-overlay-wrap");
+          const syncPatternPreviewScroll = () => {
+            patternPreview.scrollLeft = patternInput.scrollLeft;
+          };
+          const updatePatternPreview = () => {
+            renderDrumPatternPreview(patternPreview, patternInput.value);
+            syncPatternPreviewScroll();
+          };
+          const updatePatternValidity = (parsed) => {
+            patternInput.classList.toggle("invalid", !parsed);
+            patternInput.toggleAttribute("aria-invalid", !parsed);
+            patternWrap.classList.toggle("invalid", !parsed);
+            patternInput.title = parsed ? "" : "Use X, x, _, and - in a 1, 2, 4, 8, 16, or 32 step drum pattern.";
+          };
+          patternInput.addEventListener("input", () => {
+            const parsed = parseDrumPattern(patternInput.value);
+            updatePatternValidity(parsed);
+            updatePatternPreview();
+            if (!parsed) return;
+            scene.drums[track.key] = parsed;
+            savePreset();
+          });
+          patternInput.addEventListener("scroll", syncPatternPreviewScroll);
+          patternInput.addEventListener("select", syncPatternPreviewScroll);
+          patternInput.addEventListener("blur", () => {
+            const parsed = parseDrumPattern(patternInput.value);
+            if (!parsed) {
+              patternInput.value = formatDrumPattern(scene.drums[track.key]);
+              updatePatternValidity(parseDrumPattern(patternInput.value));
+            } else {
+              patternInput.value = formatDrumPattern(parsed);
+              updatePatternValidity(parsed);
+            }
+            updatePatternPreview();
+          });
+          updatePatternPreview();
+          head.querySelector("[data-mute-drum]").addEventListener("change", (event) => {
+            scene.mutes.drums[track.key] = event.target.checked;
+            savePreset();
+            applyVolumes();
+          });
+          head.querySelector(".track-label input").addEventListener("input", (event) => {
+            scene.trackVolumes[track.key] = Number(event.target.value);
+            savePreset();
+          });
+
+          row.append(head);
+          el.drumGrid.append(row);
+        });
+      }
+
+      function loadDrumPreset(genreKey, presetName) {
+        if (state.activeDrumPreset?.genre === genreKey && state.activeDrumPreset?.preset === presetName) return;
+        const preset = DRUM_PRESETS[genreKey]?.patterns[presetName];
+        if (!preset) return;
+        const scene = currentScene();
+        TRACKS.forEach((track) => {
+          scene.drums[track.key] = drumLengthArray(preset[track.key]).map(normalizeDrumValue);
+        });
+        state.activeDrumPreset = { genre: genreKey, preset: presetName };
+        state.drumPresetGenre = genreKey;
+        setBpm(preset.bpm);
+        savePreset();
+        renderAll();
+      }
+
+      function saveCurrentUserDrumPreset(name) {
+        const normalizedName = name.trim();
+        if (!normalizedName) {
+          el.status.textContent = "Name rhythm before saving";
+          return;
+        }
+        const existingIndex = state.userDrumPresets.findIndex((preset) => preset.name.toLowerCase() === normalizedName.toLowerCase());
+        const existingPreset = existingIndex >= 0 ? state.userDrumPresets[existingIndex] : null;
+        const now = new Date().toISOString();
+        const preset = normalizeUserDrumPreset({
+          id: existingPreset?.id || `${normalizedName}-${Date.now()}`,
+          name: normalizedName,
+          bpm: state.bpm,
+          createdAt: existingPreset?.createdAt || now,
+          updatedAt: now,
+          drums: currentDrumPattern(),
+        });
+        if (!preset) return;
+        if (existingIndex >= 0) {
+          state.userDrumPresets.splice(existingIndex, 1, preset);
+        } else {
+          state.userDrumPresets.push(preset);
+        }
+        state.activeDrumPreset = { genre: "user", preset: preset.id };
+        state.userDrumPresetExport = "";
+        saveUserDrumPresets();
+        savePreset();
+        renderAll();
+      }
+
+      function loadUserDrumPreset(id) {
+        const preset = state.userDrumPresets.find((entry) => entry.id === id);
+        if (!preset) return;
+        const scene = currentScene();
+        TRACKS.forEach((track) => {
+          scene.drums[track.key] = drumLengthArray(preset.drums[track.key]).map(normalizeDrumValue);
+        });
+        state.activeDrumPreset = { genre: "user", preset: preset.id };
+        setBpm(preset.bpm);
+        savePreset();
+        renderAll();
+      }
+
+      function deleteUserDrumPreset(id) {
+        const index = state.userDrumPresets.findIndex((preset) => preset.id === id);
+        if (index < 0) return;
+        state.userDrumPresets.splice(index, 1);
+        if (state.activeDrumPreset?.genre === "user" && state.activeDrumPreset.preset === id) {
+          state.activeDrumPreset = null;
+        }
+        state.userDrumPresetExport = "";
+        saveUserDrumPresets();
+        savePreset();
+        renderAll();
+      }
+
+      function renderUserDrumPresetTools() {
+        const wrapper = document.createElement("div");
+        wrapper.className = "user-preset-tools";
+
+        const title = document.createElement("h3");
+        title.textContent = "My Rhythms";
+
+        const actions = document.createElement("div");
+        actions.className = "user-preset-actions";
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.placeholder = "Name this rhythm";
+        nameInput.autocomplete = "off";
+
+        const saveButton = document.createElement("button");
+        saveButton.type = "button";
+        saveButton.textContent = "Save Current";
+        saveButton.addEventListener("click", () => saveCurrentUserDrumPreset(nameInput.value));
+        nameInput.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") saveCurrentUserDrumPreset(nameInput.value);
+        });
+
+        const exportButton = document.createElement("button");
+        exportButton.type = "button";
+        exportButton.textContent = "Export JSON";
+        exportButton.addEventListener("click", () => {
+          state.userDrumPresetExport = JSON.stringify(userDrumPresetExportPayload(), null, 2);
+          renderDrumPresetPanel();
+        });
+
+        actions.append(nameInput, saveButton, exportButton);
+
+        const list = document.createElement("div");
+        list.className = "user-preset-list";
+        if (!state.userDrumPresets.length) {
+          const emptyState = document.createElement("span");
+          emptyState.className = "hint";
+          emptyState.textContent = "Save hand-built drum grids here before promoting the best ones into built-in presets.";
+          list.append(emptyState);
+        } else {
+          state.userDrumPresets.forEach((preset) => {
+            const loadButton = document.createElement("button");
+            loadButton.type = "button";
+            loadButton.textContent = preset.name;
+            loadButton.classList.toggle("active", state.activeDrumPreset?.genre === "user" && state.activeDrumPreset.preset === preset.id);
+            loadButton.addEventListener("click", () => loadUserDrumPreset(preset.id));
+
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.textContent = "Delete";
+            deleteButton.setAttribute("aria-label", `Delete ${preset.name}`);
+            deleteButton.addEventListener("click", () => deleteUserDrumPreset(preset.id));
+
+            list.append(loadButton, deleteButton);
+          });
+        }
+
+        wrapper.append(title, actions, list);
+
+        if (state.userDrumPresetExport) {
+          const exportText = document.createElement("textarea");
+          exportText.className = "user-preset-export";
+          exportText.readOnly = true;
+          exportText.value = state.userDrumPresetExport;
+          wrapper.append(exportText);
+        }
+
+        return wrapper;
+      }
+
+      function renderDrumPresetPanel() {
+        el.drumPresetPanel.replaceChildren();
+        el.drumPresetPanel.classList.toggle("open", state.drumPresetPanelOpen);
+        el.drumPresetsToggle.classList.toggle("active", state.drumPresetPanelOpen);
+        if (!state.drumPresetPanelOpen) return;
+
+        const description = document.createElement("p");
+        description.className = "preset-description";
+        description.textContent = "Built-in drum presets are disabled for now. Save hand-built rhythms below, then export the best ones when they are ready to become built-in presets.";
+
+        el.drumPresetPanel.append(description, renderUserDrumPresetTools());
+      }
+
+      function renderPlayhead() {
+        document.querySelectorAll(".playing").forEach((node) => node.classList.remove("playing"));
+        document.querySelectorAll(`[data-step="${state.playhead}"]`).forEach((node) => node.classList.add("playing"));
+        renderBassRoll();
+        renderBassEditorPlayhead();
+        renderChordEditorPlayhead();
+        renderDrumPatternPreviews();
+      }
+
+      function renderSoundOptions(select, options, currentValue) {
+        select.replaceChildren();
+        options.forEach(([key, sound]) => {
+          const option = document.createElement("option");
+          option.value = key;
+          option.textContent = sound.label;
+          select.append(option);
+        });
+        select.value = currentValue;
+      }
+
+      function renderSoundCatalog() {
+        renderSoundOptions(el.rhythmSound, SOUND_CHOICES.rhythm.map((key) => [key, SOUND_CATALOG[key]]), state.sounds.rhythm);
+        renderSoundOptions(el.harmonySound, SOUND_CHOICES.harmony.map((key) => [key, SOUND_CATALOG[key]]), state.sounds.harmony);
+        TRACKS.forEach((track) => renderSoundOptions(el.drumSounds[track.key], Object.entries(DRUM_KIT_CATALOG), state.sounds.drums[track.key]));
+      }
+
+      function renderBassControls() {
+        renderSoundOptions(el.bassPreset, Object.entries(BASS_PRESETS), state.bass.preset);
+        renderSoundOptions(el.bassShape, BASS_SHAPES.map((shape) => [shape, { label: shape }]), state.bass.layers[0].shape);
+        el.bassToggle.textContent = state.bass.enabled ? "Bass Keyboard On" : "Bass Keyboard Off";
+        el.bassToggle.classList.toggle("active", state.bass.enabled);
+        el.bassRecordToggle.textContent = state.bass.recording ? "Record Bass On" : "Record Bass Off";
+        el.bassRecordToggle.classList.toggle("active", state.bass.recording);
+        el.bassOctave.value = state.bass.octave;
+        el.bassVolume.value = state.bass.volume;
+        el.bassGlide.value = state.bass.glide;
+        el.bassRelease.value = state.bass.release;
+      }
+
+      function renderAll() {
+        renderSoundCatalog();
+        renderBassControls();
+        renderChordPresetPanel();
+        renderDrumPresetPanel();
+        renderScenes();
+        renderChordGrid();
+        renderDrumGrid();
+        el.bpm.value = state.bpm;
+        el.strum.value = state.strumLength;
+        el.padAttack.value = state.padAttack;
+        el.masterVolume.value = state.volumes.master;
+        el.rhythmVolume.value = state.volumes.rhythm;
+        el.harmonyVolume.value = state.volumes.harmony;
+        el.drumVolume.value = state.volumes.drums;
+        applyVolumes();
+      }
+
+      function shouldIgnoreTransportShortcut(event) {
+        const target = event.target;
+        if (!(target instanceof Element)) return false;
+        if (target.closest("textarea, select")) return true;
+        return Boolean(target.closest("[contenteditable]"));
+      }
+
+      function shouldIgnoreSceneShortcut(event) {
+        const target = event.target;
+        if (!(target instanceof Element)) return false;
+        if (target.closest("input, textarea, select")) return true;
+        return Boolean(target.closest("[contenteditable]"));
+      }
+
+      function handleSceneShortcut(event) {
+        if (event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
+        if (shouldIgnoreSceneShortcut(event)) return;
+        if (!/^[0-9]$/.test(event.key)) return;
+        const sceneIndex = event.key === "0" ? 9 : Number(event.key) - 1;
+        if (!state.scenes[sceneIndex]) return;
+        event.preventDefault();
+        selectScene(sceneIndex, true);
+      }
+
+      function handleTransportShortcut(event) {
+        if (event.defaultPrevented || shouldIgnoreTransportShortcut(event)) return;
+        if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.altKey) {
+          event.preventDefault();
+          if (!state.isPlaying) startPlayback();
+          return;
+        }
+        if (event.key === "Escape") {
+          const now = Date.now();
+          if (now - lastEscapeAt <= 450) {
+            event.preventDefault();
+            stopPlayback();
+            lastEscapeAt = 0;
+            return;
+          }
+          lastEscapeAt = now;
+        }
+      }
+
+      function toggleBassKeyboard(enabled = !state.bass.enabled) {
+        state.bass.enabled = Boolean(enabled);
+        if (!state.bass.enabled) releaseAllBassNotes();
+        savePreset();
+        renderBassControls();
+      }
+
+      function toggleBassRecording(enabled = !state.bass.recording) {
+        state.bass.recording = Boolean(enabled);
+        savePreset();
+        renderBassControls();
+      }
+
+      function setBassKeyPressed(code, pressed) {
+        const key = document.querySelector(`[data-bass-key="${code}"]`);
+        if (key) key.classList.toggle("pressed", pressed);
+      }
+
+      function handleBassKeyDown(event) {
+        if (!state.bass.enabled || event.repeat || event.defaultPrevented) return;
+        const offset = BASS_KEY_MAP.get(event.code);
+        if (offset === undefined) return;
+        event.preventDefault();
+        playBassNote(event.code, offset);
+      }
+
+      function handleBassKeyUp(event) {
+        if (!state.bass.enabled) return;
+        if (!BASS_KEY_MAP.has(event.code)) return;
+        event.preventDefault();
+        releaseBassNote(event.code);
+      }
+
+      el.play.addEventListener("click", startPlayback);
+      el.stop.addEventListener("click", () => stopPlayback());
+      document.addEventListener("keydown", handleTransportShortcut, { capture: true });
+      document.addEventListener("keydown", handleSceneShortcut, { capture: true });
+      document.addEventListener("keydown", handleBassKeyDown);
+      document.addEventListener("keyup", handleBassKeyUp);
+      el.sceneLoopToggle.addEventListener("change", (event) => {
+        state.loopActiveScene = event.target.checked;
+        savePreset();
+      });
+      el.rhythmMute.addEventListener("change", (event) => {
+        currentScene().mutes.rhythm = event.target.checked;
+        savePreset();
+        applyVolumes();
+      });
+      el.harmonyMute.addEventListener("change", (event) => {
+        currentScene().mutes.harmony = event.target.checked;
+        savePreset();
+        applyVolumes();
+      });
+      el.drumPresetsToggle.addEventListener("click", () => {
+        state.drumPresetPanelOpen = !state.drumPresetPanelOpen;
+        savePreset();
+        renderDrumPresetPanel();
+      });
+      el.dubExport.addEventListener("click", () => {
+        downloadTextFile("skanker.dub", exportDubText(), "text/plain");
+      });
+      el.dubImport.addEventListener("click", () => {
+        runBlockingAction(() => el.dubImportFile.click());
+      });
+      el.dubImportFile.addEventListener("change", (event) => {
+        handleDubImportFile(event.target.files?.[0]);
+      });
+      el.chordPresetsToggle.addEventListener("click", () => {
+        state.chordPresetPanelOpen = !state.chordPresetPanelOpen;
+        savePreset();
+        renderChordPresetPanel();
+      });
+      el.bpm.addEventListener("change", (event) => setBpm(event.target.value));
+      el.bpmDown.addEventListener("click", () => setBpm(state.bpm - 1));
+      el.bpmUp.addEventListener("click", () => setBpm(state.bpm + 1));
+      el.strum.addEventListener("input", (event) => {
+        state.strumLength = Number(event.target.value);
+        savePreset();
+      });
+      el.padAttack.addEventListener("input", (event) => {
+        state.padAttack = Number(event.target.value);
+        savePreset();
+      });
+      el.bassToggle.addEventListener("click", () => toggleBassKeyboard());
+      el.bassRecordToggle.addEventListener("click", () => toggleBassRecording());
+      el.bassClear.addEventListener("click", () => {
+        const scene = currentScene();
+        if (!scene.bass.length) return;
+        if (!confirmBlocking(`Clear bassline for ${scene.name}?`)) return;
+        scene.bass = [];
+        savePreset();
+        renderBassRoll();
+        renderBassEditor();
+      });
+      el.bassPreset.addEventListener("change", (event) => applyBassPreset(event.target.value));
+      el.bassShape.addEventListener("change", (event) => {
+        state.bass.preset = "custom";
+        state.bass.layers = [{ ...state.bass.layers[0], shape: BASS_SHAPES.includes(event.target.value) ? event.target.value : "sine" }];
+        savePreset();
+        renderBassControls();
+      });
+      el.bassOctave.addEventListener("change", (event) => {
+        state.bass.octave = Math.trunc(clampNumber(event.target.value, 0, 4, state.bass.octave));
+        releaseAllBassNotes();
+        savePreset();
+        renderBassControls();
+        renderBassEditor();
+      });
+      el.bassVolume.addEventListener("input", (event) => {
+        state.bass.volume = clampNumber(event.target.value, 0, 1, state.bass.volume);
+        applyVolumes();
+        savePreset();
+      });
+      el.bassGlide.addEventListener("input", (event) => {
+        state.bass.preset = "custom";
+        state.bass.glide = clampNumber(event.target.value, 0, 0.2, state.bass.glide);
+        savePreset();
+        renderBassControls();
+      });
+      el.bassRelease.addEventListener("input", (event) => {
+        state.bass.preset = "custom";
+        state.bass.release = clampNumber(event.target.value, 0.04, 1, state.bass.release);
+        savePreset();
+        renderBassControls();
+      });
+      el.rhythmSound.addEventListener("change", async (event) => {
+        state.sounds.rhythm = Object.prototype.hasOwnProperty.call(SOUND_CATALOG, event.target.value) ? event.target.value : "internal";
+        if (audioContext && state.sounds.rhythm !== "internal") {
+          el.status.textContent = "Loading rhythm sound...";
+          await ensureWebAudioFontPreset(SOUND_CATALOG[state.sounds.rhythm]);
+          if (!state.isPlaying) el.status.textContent = "Stopped";
+        }
+        savePreset();
+        renderAll();
+      });
+      el.harmonySound.addEventListener("change", async (event) => {
+        state.sounds.harmony = Object.prototype.hasOwnProperty.call(SOUND_CATALOG, event.target.value) ? event.target.value : "internal";
+        if (audioContext && state.sounds.harmony !== "internal") {
+          el.status.textContent = "Loading harmony sound...";
+          await ensureWebAudioFontPreset(SOUND_CATALOG[state.sounds.harmony]);
+          if (!state.isPlaying) el.status.textContent = "Stopped";
+        }
+        releaseHarmony(audioContext?.currentTime || 0);
+        savePreset();
+        renderAll();
+      });
+      TRACKS.forEach((track) => {
+        el.drumSounds[track.key].addEventListener("change", async (event) => {
+          state.sounds.drums[track.key] = Object.prototype.hasOwnProperty.call(DRUM_KIT_CATALOG, event.target.value) ? event.target.value : "internal";
+          const drumSound = drumSoundDefinition(state.sounds.drums[track.key], track.key);
+          if (audioContext && drumSound) {
+            el.status.textContent = `Loading ${track.label} sound...`;
+            await ensureWebAudioFontPreset(drumSound);
+            if (!state.isPlaying) el.status.textContent = "Stopped";
+          }
+          savePreset();
+          renderAll();
+        });
+      });
+      el.masterVolume.addEventListener("input", (event) => {
+        state.volumes.master = Number(event.target.value);
+        applyVolumes();
+        savePreset();
+      });
+      el.rhythmVolume.addEventListener("input", (event) => {
+        state.volumes.rhythm = Number(event.target.value);
+        applyVolumes();
+        savePreset();
+      });
+      el.harmonyVolume.addEventListener("input", (event) => {
+        state.volumes.harmony = Number(event.target.value);
+        applyVolumes();
+        savePreset();
+      });
+      el.drumVolume.addEventListener("input", (event) => {
+        state.volumes.drums = Number(event.target.value);
+        applyVolumes();
+        savePreset();
+      });
+      el.soundOpen.addEventListener("click", openSoundCatalog);
+      el.soundClose.addEventListener("click", closeSoundCatalog);
+      el.soundDialog.addEventListener("cancel", closeSoundCatalog);
+      el.bassEditorClose.addEventListener("click", closeBassEditor);
+      el.bassEditorDialog.addEventListener("cancel", closeBassEditor);
+      el.chordEditorOpen.addEventListener("click", openChordEditor);
+      el.chordEditorClose.addEventListener("click", closeChordEditor);
+      el.chordEditorDialog.addEventListener("cancel", closeChordEditor);
+      el.catalogOpen.addEventListener("click", openCatalog);
+      el.catalogClose.addEventListener("click", closeCatalog);
+      el.catalogAdd.addEventListener("click", () => addCatalogRow());
+      el.catalogSave.addEventListener("click", saveCatalog);
+      el.catalogDialog.addEventListener("cancel", closeCatalog);
+
+      loadUserDrumPresets();
+      loadUserChordPresets();
+      loadPreset();
+      applyUrlPresetIdentity();
+      renderAll();
