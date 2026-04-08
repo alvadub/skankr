@@ -6,44 +6,70 @@
     <title>Skanking Sequencer</title>
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body>
+  <body class="mode-edit editing">
     <main class="app">
-      <header class="hero">
-        <div>
-          <h1>Skanking Sequencer</h1>
-          <p>Two-bar browser sequencer for chord chops, sustained harmony, and drum grooves. No DAW, server, bundler, or dependencies.</p>
+      <header class="app-topbar">
+        <div class="topbar-left">
+          <div class="brand-mark">SKANKR</div>
+          <div class="control-group transport transport-inline">
+            <button id="play" class="transport-icon-button" aria-label="Play">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.75v10.5L13 8 4 2.75Z" fill="currentColor"/></svg>
+              <span class="sr-only">Play</span>
+            </button>
+            <button id="stop" class="transport-icon-button" aria-label="Stop">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5h3.5v9h-3.5zm5.5 0h3.5v9H9z" fill="currentColor"/></svg>
+              <span class="sr-only">Stop</span>
+            </button>
+            <div class="control-group bpm-control bpm-inline">
+              <label for="bpm">BPM</label>
+              <button id="bpm-down" class="transport-icon-button transport-step-button" aria-label="Decrease BPM">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h9" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/></svg>
+                <span class="sr-only">Decrease BPM</span>
+              </button>
+              <input id="bpm" type="number" min="60" max="200" step="1" value="100" />
+              <button id="bpm-up" class="transport-icon-button transport-step-button" aria-label="Increase BPM">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/></svg>
+                <span class="sr-only">Increase BPM</span>
+              </button>
+            </div>
+          </div>
         </div>
-        <div id="status" class="status-pill">Stopped</div>
+        <div class="mode-switch" role="tablist" aria-label="Mode">
+          <button id="mode-listen" type="button" role="tab" aria-selected="false">Listen</button>
+          <button id="mode-edit" type="button" role="tab" aria-selected="true">Edit</button>
+          <button id="mode-write" type="button" role="tab" aria-selected="false">Write</button>
+        </div>
+        <div class="topbar-actions">
+          <div id="status" class="status-pill">Stopped</div>
+          <button id="mixer-open" type="button">Mixer</button>
+          <button id="share-link" type="button">Share</button>
+        </div>
       </header>
 
-      <div class="workspace">
-        <aside class="sidebar" aria-label="Controls and presets">
-          <section class="panel controls" aria-label="Transport controls">
-            <h2>Controls</h2>
-            <div class="control-group transport">
-              <button id="play">Play</button>
-              <button id="stop">Stop</button>
-            </div>
-            <div class="control-group bpm-control">
-              <label for="bpm">BPM</label>
-              <button id="bpm-down" aria-label="Decrease BPM">--</button>
-              <input id="bpm" type="number" min="60" max="200" step="1" value="100" />
-              <button id="bpm-up" aria-label="Increase BPM">++</button>
-            </div>
-            <div class="control-group">
-              <label for="strum">Strum Length</label>
-              <input id="strum" type="range" min="0.05" max="0.25" step="0.01" value="0.12" />
-              <label for="pad-attack">Pad Attack</label>
-              <input id="pad-attack" type="range" min="0.02" max="0.4" step="0.01" value="0.08" />
-            </div>
-            <div class="volumes" aria-label="Volumes">
-              <label>Master <input id="master-volume" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
-              <label>Rhythm <input id="rhythm-volume" type="range" min="0" max="1" step="0.01" value="0.55" /></label>
-              <label>Harmony <input id="harmony-volume" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
-              <label>Drums <input id="drum-volume" type="range" min="0" max="1" step="0.01" value="0.75" /></label>
-            </div>
-          </section>
+      <header class="hero">
+        <div class="hero-media" aria-hidden="true">
+          <div class="hero-disc">
+            <span class="hero-disc-ring"></span>
+          </div>
+        </div>
+        <div class="hero-copy">
+          <div id="song-title-display" class="hero-title-display">Skanking Sequencer</div>
+          <div id="song-title-input" class="hero-title-input" contenteditable="true" spellcheck="false" role="textbox" aria-label="Song title"></div>
+          <p id="song-subtitle" class="hero-subtitle">Two-bar browser sequencer for chord chops, sustained harmony, and drum grooves.</p>
+          <div class="hero-tags">
+            <span class="hero-tag">32 pulses</span>
+            <span class="hero-tag">DUB export</span>
+            <span class="hero-tag">10 scenes</span>
+          </div>
+        </div>
+      </header>
+      <section class="hero-note-card">
+        <div id="song-note-display" class="hero-note-display">Live dub sketch for groove, chords, and arrangement review.</div>
+        <div id="song-note-input" class="hero-note-input" contenteditable="true" spellcheck="true" role="textbox" aria-label="Composer note" data-placeholder="Add a composer note for collaborators..."></div>
+      </section>
 
+      <div class="workspace">
+        <aside class="sidebar" aria-label="Song structure">
           <section class="panel" aria-label="Scenes">
             <h2>Scenes</h2>
             <label class="scene-loop-control">
@@ -52,68 +78,44 @@
             </label>
             <div class="scene-tabs" id="scene-tabs"></div>
           </section>
-
-          <section class="panel bass-panel" aria-label="Bass keyboard">
-            <h2>Bass Keyboard</h2>
-            <div class="bass-actions">
-              <button id="bass-toggle" type="button">Bass Keyboard Off</button>
-              <button id="bass-record-toggle" type="button">Record Bass Off</button>
-            </div>
-            <div class="bass-keyboard-map" aria-label="Bass keyboard note map">
-              <div class="bass-key-row" aria-label="Black-key row">
-                <span class="bass-key black" data-bass-key="KeyW" style="grid-column: 2;">W</span><span class="bass-key black" data-bass-key="KeyE" style="grid-column: 4;">E</span><span class="bass-key black" data-bass-key="KeyT" style="grid-column: 7;">T</span><span class="bass-key black" data-bass-key="KeyY" style="grid-column: 9;">Y</span><span class="bass-key black" data-bass-key="KeyU" style="grid-column: 11;">U</span><span class="bass-key black" data-bass-key="KeyO" style="grid-column: 14;">O</span><span class="bass-key black" data-bass-key="KeyP" style="grid-column: 16;">P</span>
-              </div>
-              <div class="bass-key-row" aria-label="White-key row">
-                <span class="bass-key white" data-bass-key="KeyA" style="grid-column: 1;">A</span><span class="bass-key white" data-bass-key="KeyS" style="grid-column: 3;">S</span><span class="bass-key white" data-bass-key="KeyD" style="grid-column: 5;">D</span><span class="bass-key white" data-bass-key="KeyF" style="grid-column: 6;">F</span><span class="bass-key white" data-bass-key="KeyG" style="grid-column: 8;">G</span><span class="bass-key white" data-bass-key="KeyH" style="grid-column: 10;">H</span><span class="bass-key white" data-bass-key="KeyJ" style="grid-column: 12;">J</span><span class="bass-key white" data-bass-key="KeyK" style="grid-column: 13;">K</span><span class="bass-key white" data-bass-key="KeyL" style="grid-column: 15;">L</span><span class="bass-key white" data-bass-key="Semicolon" style="grid-column: 17;">Ñ</span>
-              </div>
-            </div>
-            <label>Preset <select id="bass-preset"></select></label>
-            <label>Shape <select id="bass-shape"></select></label>
-            <label>Octave <input id="bass-octave" type="number" min="0" max="4" step="1" value="2" /></label>
-            <label>Volume <input id="bass-volume" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
-            <label>Glide <input id="bass-glide" type="range" min="0" max="0.2" step="0.01" value="0.04" /></label>
-            <label>Release <input id="bass-release" type="range" min="0.04" max="1" step="0.01" value="0.2" /></label>
-            <button id="bass-clear" type="button">Clear Bassline</button>
-            <p class="hint">Turn Bass Keyboard on, then use the previewed keys to play chromatically from the selected octave.</p>
-          </section>
-
-          <section class="panel" aria-label="Catalogs and saved patterns">
-            <h2>Builders</h2>
-            <div class="control-group">
-              <button id="sound-open">Sound Catalog</button>
-              <button id="catalog-open">Chord Catalog</button>
-              <button id="chord-presets-toggle">Progressions</button>
-              <button id="drum-presets-toggle">Rhythms</button>
-              <button id="dub-export" type="button">Export DUB</button>
-              <button id="dub-import" type="button">Import DUB</button>
-              <input id="dub-import-file" type="file" accept=".dub,text/plain" hidden />
-            </div>
-            <div id="chord-preset-panel" class="preset-panel" aria-label="Chord progression preset builder"></div>
-            <div id="drum-preset-panel" class="preset-panel" aria-label="Drum preset browser"></div>
-          </section>
         </aside>
 
         <div class="sequencers">
+          <section id="write-panel" class="panel write-panel" aria-label="DUB export view">
+            <div class="grid-head">
+              <div>
+                <h2>Write Surface</h2>
+                <p>Inspect the generated DUB, copy it, or download it. This panel is derived from the current song state.</p>
+              </div>
+              <div class="write-actions">
+                <button id="write-copy" type="button">Copy DUB</button>
+                <button id="write-download" type="button">Download DUB</button>
+                <button id="write-import" type="button">Import DUB</button>
+                <input id="dub-import-file" type="file" accept=".dub,text/plain" hidden />
+              </div>
+            </div>
+            <textarea id="write-dub" class="write-dub" readonly spellcheck="false" aria-label="Generated DUB"></textarea>
+          </section>
+
           <section class="panel">
             <div class="grid-head">
               <div>
-                <h2>Chord Grid</h2>
+                <h2>Chord Map · 32 Steps</h2>
                 <p>Edit Rhythm and Harmony directly in the stacked fields. Empty or invalid entries stay editable and do not play.</p>
               </div>
               <div class="chord-lane-mutes">
                 <label class="track-mute-label">Mute Rhythm <input id="rhythm-mute" type="checkbox" /></label>
                 <label class="track-mute-label">Mute Harmony <input id="harmony-mute" type="checkbox" /></label>
-                <button id="chord-editor-open" type="button">Edit Chords</button>
               </div>
             </div>
-            <div id="chord-grid" class="step-grid" aria-label="Chord steps"></div>
+            <div id="chord-grid" class="chord-grid-stack" aria-label="Chord steps"></div>
             <p class="hint">Use chord symbols in the grid, then configure their note lists in the catalog. Inline voicings like Cm=g3,c4,eb4 still work.</p>
           </section>
 
           <section class="panel">
             <div class="grid-head">
               <div>
-                <h2>Drum Grid</h2>
+                <h2>Riddim Grid · 32 Steps</h2>
                 <p>Four synthesized drum lanes share the same 32-step clock as the chord loop.</p>
               </div>
             </div>
@@ -161,16 +163,93 @@
       <p class="hint">Current choices are saved in your local preset. WebAudioFont options require a network connection the first time they load.</p>
     </dialog>
 
+    <dialog id="mixer-dialog" class="catalog-dialog sound-dialog">
+      <div class="catalog-head">
+        <div>
+          <h2>Mixer</h2>
+          <p>Playback shaping and main mix levels live here so the main layout stays focused on song structure and sequence editing.</p>
+        </div>
+        <button id="mixer-close" aria-label="Close mixer">Close</button>
+      </div>
+      <div class="dialog-columns mixer-columns">
+        <section class="dialog-column">
+          <h3>Mix</h3>
+          <div class="sound-rows mixer-sound-rows">
+            <label>Strum Length <input id="strum" type="range" min="0.05" max="0.25" step="0.01" value="0.12" /></label>
+            <label>Pad Attack <input id="pad-attack" type="range" min="0.02" max="0.4" step="0.01" value="0.08" /></label>
+            <label>Master <input id="master-volume" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+            <label>Rhythm <input id="rhythm-volume" type="range" min="0" max="1" step="0.01" value="0.55" /></label>
+            <label>Harmony <input id="harmony-volume" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
+            <label>Drums <input id="drum-volume" type="range" min="0" max="1" step="0.01" value="0.75" /></label>
+            <label>Bass <input id="bass-volume" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
+            <fieldset class="sound-fieldset">
+              <legend>Drum Lanes</legend>
+              <label>Kick <input id="mixer-kick-volume" type="range" min="0" max="1" step="0.01" value="0.88" /></label>
+              <label>Snare <input id="mixer-snare-volume" type="range" min="0" max="1" step="0.01" value="0.75" /></label>
+              <label>Hi-hat <input id="mixer-hihat-volume" type="range" min="0" max="1" step="0.01" value="0.45" /></label>
+              <label>Open HH <input id="mixer-openhat-volume" type="range" min="0" max="1" step="0.01" value="0.55" /></label>
+            </fieldset>
+          </div>
+        </section>
+        <section class="dialog-column">
+          <h3>Tools</h3>
+          <div class="dialog-tool-grid">
+            <button id="sound-open" type="button">Sound Catalog</button>
+            <button id="catalog-open" type="button">Chord Catalog</button>
+            <button id="chord-presets-toggle" type="button">Progressions</button>
+            <button id="drum-presets-toggle" type="button">Rhythms</button>
+          </div>
+          <p class="hint">Catalog and preset tools open as separate dialogs so the main mixer stays focused on levels and shaping.</p>
+        </section>
+      </div>
+    </dialog>
+
+    <dialog id="chord-presets-dialog" class="catalog-dialog sound-dialog">
+      <div class="catalog-head">
+        <div>
+          <h2>Progressions</h2>
+          <p>Save and reload Rhythm/Harmony combinations separately from drums and bass.</p>
+        </div>
+        <button id="chord-presets-close" aria-label="Close progression presets">Close</button>
+      </div>
+      <div id="chord-preset-panel" class="preset-panel open" aria-label="Chord progression preset builder"></div>
+    </dialog>
+
+    <dialog id="drum-presets-dialog" class="catalog-dialog sound-dialog">
+      <div class="catalog-head">
+        <div>
+          <h2>Rhythms</h2>
+          <p>Save and reload hand-built drum grids, then export the best ones when they are ready.</p>
+        </div>
+        <button id="drum-presets-close" aria-label="Close rhythm presets">Close</button>
+      </div>
+      <div id="drum-preset-panel" class="preset-panel open" aria-label="Drum preset browser"></div>
+    </dialog>
+
     <dialog id="bass-editor-dialog" class="catalog-dialog bass-editor-dialog">
       <div class="catalog-head">
         <div>
-          <h2>Bassline Editor</h2>
-          <p>Edit the bassline with a note pool and a pulse pattern. Pattern x consumes the next note and - rests. Manual _ sustains still work.</p>
+          <h2>Bass Settings</h2>
+          <p>Configure the bass keyboard, synth settings, and live-record behavior. Bass notes and pattern editing now live directly in the main grid.</p>
         </div>
-        <button id="bass-editor-close" aria-label="Close bassline editor">Close</button>
+        <button id="bass-editor-close" aria-label="Close bass settings">Close</button>
       </div>
-      <div id="bass-editor" class="bass-editor" data-bass-editor></div>
-      <p class="hint">The editor uses the current Bass Keyboard octave as its visible range. Change the octave in the sidebar, then reopen or refresh the editor.</p>
+      <div id="bass-editor" class="bass-panel" data-bass-editor>
+        <div class="bass-keyboard-map" aria-label="Bass keyboard note map">
+          <div class="bass-key-row" aria-label="Black-key row">
+            <span class="bass-key black" data-bass-key="KeyW" style="grid-column: 2;">W</span><span class="bass-key black" data-bass-key="KeyE" style="grid-column: 4;">E</span><span class="bass-key black" data-bass-key="KeyT" style="grid-column: 7;">T</span><span class="bass-key black" data-bass-key="KeyY" style="grid-column: 9;">Y</span><span class="bass-key black" data-bass-key="KeyU" style="grid-column: 11;">U</span><span class="bass-key black" data-bass-key="KeyO" style="grid-column: 14;">O</span><span class="bass-key black" data-bass-key="KeyP" style="grid-column: 16;">P</span>
+          </div>
+          <div class="bass-key-row" aria-label="White-key row">
+            <span class="bass-key white" data-bass-key="KeyA" style="grid-column: 1;">A</span><span class="bass-key white" data-bass-key="KeyS" style="grid-column: 3;">S</span><span class="bass-key white" data-bass-key="KeyD" style="grid-column: 5;">D</span><span class="bass-key white" data-bass-key="KeyF" style="grid-column: 6;">F</span><span class="bass-key white" data-bass-key="KeyG" style="grid-column: 8;">G</span><span class="bass-key white" data-bass-key="KeyH" style="grid-column: 10;">H</span><span class="bass-key white" data-bass-key="KeyJ" style="grid-column: 12;">J</span><span class="bass-key white" data-bass-key="KeyK" style="grid-column: 13;">K</span><span class="bass-key white" data-bass-key="KeyL" style="grid-column: 15;">L</span><span class="bass-key white" data-bass-key="Semicolon" style="grid-column: 17;">Ñ</span>
+          </div>
+        </div>
+        <label>Preset <select id="bass-preset"></select></label>
+        <label>Shape <select id="bass-shape"></select></label>
+        <label>Octave <input id="bass-octave" type="number" min="0" max="4" step="1" value="2" /></label>
+        <label>Glide <input id="bass-glide" type="range" min="0" max="0.2" step="0.01" value="0.04" /></label>
+        <label>Release <input id="bass-release" type="range" min="0.04" max="1" step="0.01" value="0.2" /></label>
+      </div>
+      <p class="hint">Turn Bass Keyboard on, then use the previewed keys to play chromatically from the selected octave.</p>
     </dialog>
 
     <dialog id="chord-editor-dialog" class="catalog-dialog chord-editor-dialog">

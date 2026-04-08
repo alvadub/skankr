@@ -2,7 +2,7 @@
       const DRUM_STEPS = STEPS;
       const CHORD_STEPS = STEPS;
       const LOOP_STEPS = STEPS;
-      const SCENE_SLOTS = 10;
+      const INITIAL_SCENE_COUNT = 4;
       const BASS_TICKS_PER_STEP = 4;
       const BASS_TICKS = STEPS * BASS_TICKS_PER_STEP;
       const BASS_EDITOR_PARTS = 2;
@@ -123,6 +123,9 @@
 
       const state = {
         bpm: 100,
+        uiMode: "edit",
+        songTitle: "Skanking Sequencer",
+        songNote: "Live dub sketch for groove, chords, and arrangement review.",
         currentScene: 0,
         pendingScene: null,
         loopActiveScene: false,
@@ -157,7 +160,7 @@
         },
         volumes: { master: 0.8, rhythm: 0.55, harmony: 0.35, drums: 0.75 },
         chordCatalog: { ...DEFAULT_CHORD_CATALOG },
-        scenes: Array.from({ length: SCENE_SLOTS }, (_, index) => createScene(index)),
+        scenes: Array.from({ length: INITIAL_SCENE_COUNT }, (_, index) => createScene(index)),
       };
 
       let audioContext;
@@ -184,6 +187,18 @@
 
       const el = {
         status: document.getElementById("status"),
+        modeListen: document.getElementById("mode-listen"),
+        modeEdit: document.getElementById("mode-edit"),
+        modeWrite: document.getElementById("mode-write"),
+        shareLink: document.getElementById("share-link"),
+        mixerOpen: document.getElementById("mixer-open"),
+        mixerDialog: document.getElementById("mixer-dialog"),
+        mixerClose: document.getElementById("mixer-close"),
+        songTitleDisplay: document.getElementById("song-title-display"),
+        songTitleInput: document.getElementById("song-title-input"),
+        songSubtitle: document.getElementById("song-subtitle"),
+        songNoteDisplay: document.getElementById("song-note-display"),
+        songNoteInput: document.getElementById("song-note-input"),
         play: document.getElementById("play"),
         stop: document.getElementById("stop"),
         bpm: document.getElementById("bpm"),
@@ -199,9 +214,10 @@
         bassClear: document.getElementById("bass-clear"),
         bassEditorDialog: document.getElementById("bass-editor-dialog"),
         bassEditorClose: document.getElementById("bass-editor-close"),
-        chordEditorOpen: document.getElementById("chord-editor-open"),
         chordEditorDialog: document.getElementById("chord-editor-dialog"),
         chordEditorClose: document.getElementById("chord-editor-close"),
+        chordPresetsDialog: document.getElementById("chord-presets-dialog"),
+        chordPresetsClose: document.getElementById("chord-presets-close"),
         rhythmMute: document.getElementById("rhythm-mute"),
         harmonyMute: document.getElementById("harmony-mute"),
         bassPreset: document.getElementById("bass-preset"),
@@ -210,6 +226,7 @@
         bassVolume: document.getElementById("bass-volume"),
         bassGlide: document.getElementById("bass-glide"),
         bassRelease: document.getElementById("bass-release"),
+        mixerDrumVolumes: Object.fromEntries(TRACKS.map((track) => [track.key, document.getElementById(`mixer-${track.key}-volume`)])),
         sceneLoopToggle: document.getElementById("scene-loop-toggle"),
         sceneTabs: document.getElementById("scene-tabs"),
         chordGrid: document.getElementById("chord-grid"),
@@ -218,6 +235,8 @@
         drumGrid: document.getElementById("drum-grid"),
         drumPresetsToggle: document.getElementById("drum-presets-toggle"),
         drumPresetPanel: document.getElementById("drum-preset-panel"),
+        drumPresetsDialog: document.getElementById("drum-presets-dialog"),
+        drumPresetsClose: document.getElementById("drum-presets-close"),
         masterVolume: document.getElementById("master-volume"),
         rhythmVolume: document.getElementById("rhythm-volume"),
         harmonyVolume: document.getElementById("harmony-volume"),
@@ -231,9 +250,11 @@
         catalogAdd: document.getElementById("catalog-add"),
         catalogSave: document.getElementById("catalog-save"),
         catalogClose: document.getElementById("catalog-close"),
-        dubExport: document.getElementById("dub-export"),
-        dubImport: document.getElementById("dub-import"),
         dubImportFile: document.getElementById("dub-import-file"),
+        writeDub: document.getElementById("write-dub"),
+        writeCopy: document.getElementById("write-copy"),
+        writeDownload: document.getElementById("write-download"),
+        writeImport: document.getElementById("write-import"),
       };
 
       function createScene(index) {
@@ -260,7 +281,15 @@
           name: `Scene ${index + 1}`,
           rhythm: Array(CHORD_STEPS).fill(""),
           harmony: Array(CHORD_STEPS).fill(""),
+          chordPoolText: {
+            rhythm: Array(CHORD_EDITOR_PARTS).fill(""),
+            harmony: Array(CHORD_EDITOR_PARTS).fill(""),
+          },
           bass: [],
+          bassText: {
+            notes: "",
+            pattern: "",
+          },
           drums: Object.fromEntries(TRACKS.map((track) => [track.key, Array(DRUM_STEPS).fill(0)])),
           mutes: {
             rhythm: false,
@@ -276,12 +305,52 @@
         return state.scenes[state.currentScene];
       }
 
+      function bassTextState(sourceBass, sourceBassText = null) {
+        const notes = typeof sourceBassText?.notes === "string" ? sourceBassText.notes : formatBassNotes(sourceBass);
+        const pattern = typeof sourceBassText?.pattern === "string" ? sourceBassText.pattern : formatBassPattern(sourceBass);
+        return { notes, pattern };
+      }
+
+      function chordPoolTextState(layerValues, sourceLayerText = null) {
+        return Array.from({ length: CHORD_EDITOR_PARTS }, (_, partIndex) => (
+          typeof sourceLayerText?.[partIndex] === "string"
+            ? sourceLayerText[partIndex]
+            : formatChordPoolPart(layerValues, partIndex)
+        ));
+      }
+
+      function setChordPoolText(scene, layer, partIndex, value) {
+        if (!scene.chordPoolText) {
+          scene.chordPoolText = {
+            rhythm: chordPoolTextState(scene.rhythm),
+            harmony: chordPoolTextState(scene.harmony),
+          };
+        }
+        scene.chordPoolText[layer][partIndex] = value;
+      }
+
+      function normalizeUiMode(rawMode) {
+        return ["listen", "edit", "write"].includes(rawMode) ? rawMode : "edit";
+      }
+
       function escapeAttr(value) {
         return String(value)
           .replace(/&/g, "&amp;")
           .replace(/"/g, "&quot;")
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;");
+      }
+
+      function uiIcon(name) {
+        const icons = {
+          power: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5v5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.6"/><path d="M4.4 3.8A5.5 5.5 0 1 0 11.6 3.8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.6"/></svg>',
+          record: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.2" fill="currentColor"/></svg>',
+          settings: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.6 1.8h2.8l.4 1.6 1.3.5 1.4-.8 2 2-0.8 1.4.5 1.3 1.6.4v2.8l-1.6.4-.5 1.3.8 1.4-2 2-1.4-.8-1.3.5-.4 1.6H6.6l-.4-1.6-1.3-.5-1.4.8-2-2 .8-1.4-.5-1.3-1.6-.4V8.6l1.6-.4.5-1.3-.8-1.4 2-2 1.4.8 1.3-.5.4-1.6Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.1"/><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>',
+          clear: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 4.5 12.5 13.5M12.5 4.5 3.5 13.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.7"/></svg>',
+          notes: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.75 2.5v7.2a2 2 0 1 1-1.5-1.94V4.1l4-1.1v5.6a2 2 0 1 1-1.5-1.94V2.5l-1 .28Z" fill="currentColor"/></svg>',
+          pattern: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.25 11.75V9.5m3-5.25v7.5m3-4.5v4.5m3-8.5v8.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M1.5 13.25h13" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.2" opacity=".65"/></svg>',
+        };
+        return icons[name] || "";
       }
 
       function midiToHz(midi) {
@@ -782,9 +851,9 @@
         scene.bass = scene.bass.filter((event) => event.tick !== tick);
         scene.bass.push({ tick, code, midi, length: BASS_TICKS_PER_STEP, velocity: 1 });
         sortAndTrimBassEvents(scene.bass);
+        scene.bassText = bassTextState(scene.bass);
         savePreset();
-        renderBassRoll();
-        renderBassEditor();
+        renderDrumGrid();
         el.status.textContent = `Recorded bass ${bassNoteLabel({ midi })} on bass step ${(state.playhead % STEPS) + 1}.${(tick % BASS_TICKS_PER_STEP) + 1}`;
       }
 
@@ -812,20 +881,33 @@
       }
 
       function activeChordStatus(scene, step) {
-        const rhythmChord = activeChordAt(scene.rhythm, step);
-        const harmonyChord = activeChordAt(scene.harmony, step);
+        const beatStart = Math.floor(step / 4) * 4;
+        let skankReferenceStep = beatStart;
+        for (let offset = 0; offset < 4; offset += 1) {
+          const candidateStep = beatStart + offset;
+          const rhythmValue = String(scene.rhythm[candidateStep] || "").trim();
+          if (!rhythmValue) continue;
+          skankReferenceStep = candidateStep;
+          break;
+        }
+        const rhythmChord = activeChordAt(scene.rhythm, skankReferenceStep);
+        const harmonyChord = activeChordAt(scene.harmony, skankReferenceStep);
         if (!rhythmChord && !harmonyChord) return "";
-        return ` | Rhythm ${rhythmChord || "-"} | Harmony ${harmonyChord || "-"}`;
+        return ` · ${rhythmChord || "-"} / ${harmonyChord || "-"}`;
       }
 
       function scheduleStep(step, time) {
         const scene = currentScene();
         const rhythmChord = scene.rhythm[step];
         const harmonyChord = scene.harmony[step];
+        const previousHarmonyChord = scene.harmony[(step - 1 + CHORD_STEPS) % CHORD_STEPS];
         const drumStep = step % DRUM_STEPS;
         const bassStep = step % STEPS;
         if (rhythmChord) playRhythm(rhythmChord, time);
-        if (harmonyChord || step === 0) playHarmony(harmonyChord, time);
+        const harmonyStarts = Boolean(harmonyChord) && String(harmonyChord).trim() !== String(previousHarmonyChord || "").trim();
+        const harmonyStops = !String(harmonyChord || "").trim() && String(previousHarmonyChord || "").trim();
+        if (harmonyStarts || (step === 0 && harmonyChord)) playHarmony(harmonyChord, time);
+        else if (harmonyStops || (step === 0 && !harmonyChord)) releaseHarmony(time);
         bassEventsForStep(scene, bassStep).forEach((event) => {
           const tickOffset = event.tick % BASS_TICKS_PER_STEP;
           const tickDuration = 60 / state.bpm / 4 / BASS_TICKS_PER_STEP;
@@ -840,8 +922,8 @@
           state.playhead = step;
           currentStepStartTime = time;
           renderPlayhead();
-          const activeScene = currentScene();
-          el.status.textContent = `Playing ${activeScene.name} - chord step ${step + 1}${activeChordStatus(activeScene, step)}`;
+          el.status.textContent = "Playing";
+          el.songSubtitle.textContent = currentSongSubtitle();
         }, Math.max(0, (time - audioContext.currentTime) * 1000));
       }
 
@@ -997,17 +1079,31 @@
         return scene.bass.filter((event) => bassEventStep(event) === step);
       }
 
+      function splitWhitespacePreservingParts(value) {
+        return String(value || "").match(/\s+|\S+/g) || [];
+      }
+
       function parseBassNotes(rawNotes) {
-        const tokens = String(rawNotes || "").trim().split(/\s+/).filter(Boolean);
+        const tokens = splitWhitespacePreservingParts(rawNotes).filter((part) => !/^\s+$/.test(part));
         if (!tokens.length) return [];
         const notes = tokens.map(parseNoteName);
         return notes.some((note) => !note) ? null : notes;
       }
 
       function normalizeBassNotesText(rawNotes) {
-        const notes = parseBassNotes(rawNotes);
-        if (!notes) return String(rawNotes || "").trim().toLowerCase();
-        return notes.map((note) => note.label).join(" ");
+        return splitWhitespacePreservingParts(rawNotes).map((part) => {
+          if (/^\s+$/.test(part)) return part;
+          const note = parseNoteName(part);
+          return note ? note.label : part.toLowerCase();
+        }).join("");
+      }
+
+      function normalizeChordPoolText(rawChords) {
+        return splitWhitespacePreservingParts(rawChords).map((part) => {
+          if (/^\s+$/.test(part)) return part;
+          const chord = parseChord(part);
+          return chord ? chord.label : part;
+        }).join("").trimEnd();
       }
 
       function parseBassPattern(rawPattern, maxTicks = BASS_TICKS) {
@@ -1104,9 +1200,9 @@
           .join(" ");
       }
 
-      function updateBassEditorPartValidity(notesInput, patternInput, statsEl) {
+      function updateBassEditorPartValidity(notesInput, patternInput, statsEl, maxTicks = BASS_EDITOR_PART_TICKS) {
         const notes = parseBassNotes(notesInput.value);
-        const pattern = parseBassPattern(patternInput.value, BASS_EDITOR_PART_TICKS);
+        const pattern = parseBassPattern(patternInput.value, maxTicks);
         const stats = pattern ? bassPatternStats(pattern) : { pulses: 0, sustains: 0, rests: 0, ticks: 0 };
         const invalidNotes = notes === null || (pattern !== null && notes.length !== stats.pulses);
         notesInput.classList.toggle("invalid", invalidNotes);
@@ -1117,13 +1213,13 @@
           ? `Enter exactly ${stats.pulses} note${stats.pulses === 1 ? "" : "s"} for this part. Each x starts a note; _ starts one only after silence.`
           : "";
         patternInput.title = pattern === null
-          ? `Use X, x, _, and - for up to ${BASS_EDITOR_PART_TICKS} fine pulses. Spaces, ., and 0 are allowed separators/rests.`
+          ? `Use X, x, _, and - for up to ${maxTicks} fine pulses. Spaces, ., and 0 are allowed separators/rests.`
           : "";
         if (statsEl) {
-          statsEl.textContent = `notes ${notes?.length ?? 0}/${stats.pulses} | pulses ${stats.pulses} | sustains ${stats.sustains} | rests ${stats.rests} | ticks ${stats.ticks}/${BASS_EDITOR_PART_TICKS}`;
+          statsEl.textContent = `notes ${notes?.length ?? 0}/${stats.pulses} | pulses ${stats.pulses} | sustains ${stats.sustains} | rests ${stats.rests} | ticks ${stats.ticks}/${maxTicks}`;
         }
         return {
-          events: invalidNotes || pattern === null ? null : bassPatternToEvents(notesInput.value, patternInput.value, Number(notesInput.dataset.tickOffset) || 0, BASS_EDITOR_PART_TICKS),
+          events: invalidNotes || pattern === null ? null : bassPatternToEvents(notesInput.value, patternInput.value, Number(notesInput.dataset.tickOffset) || 0, maxTicks),
           pattern,
           stats,
         };
@@ -1135,6 +1231,7 @@
           part.querySelector(".bass-notes-input"),
           part.querySelector(".bass-pattern-input"),
           part.querySelector(".bass-editor-stats"),
+          Number(part.querySelector(".bass-notes-input")?.dataset.maxTicks) || BASS_EDITOR_PART_TICKS,
         ));
         if (results.some((result) => !result.events)) return;
         currentScene().bass = sortAndTrimBassEvents(results.flatMap((result) => result.events));
@@ -1143,7 +1240,7 @@
       }
 
       function parseChordPool(rawChords) {
-        const tokens = String(rawChords || "").trim().split(/\s+/).filter(Boolean);
+        const tokens = splitWhitespacePreservingParts(rawChords).filter((part) => !/^\s+$/.test(part));
         if (!tokens.length) return [];
         const chords = tokens.map((token) => parseChord(token));
         return chords.some((chord) => !chord) ? null : chords.map((chord) => chord.label);
@@ -1311,7 +1408,7 @@
       }
 
       function dubSceneLabel(index) {
-        return index === 9 ? "SLOT0" : `SLOT${index + 1}`;
+        return `SLOT${index + 1}`;
       }
 
       function dubLineComment(value) {
@@ -1384,8 +1481,107 @@
         return groups.join(" ");
       }
 
+      function orderedUnique(values) {
+        const seen = new Set();
+        return values.filter((value) => {
+          if (!value || seen.has(value)) return false;
+          seen.add(value);
+          return true;
+        });
+      }
+
+      function summarizeChordLayer(layerValues) {
+        const starts = [];
+        let currentChord = "";
+        fixedLengthArray(layerValues, "", CHORD_STEPS).forEach((rawValue, step) => {
+          const value = String(rawValue || "").trim();
+          if (!value) {
+            currentChord = "";
+            return;
+          }
+          if (value === currentChord) return;
+          starts.push({ step: step + 1, chord: value });
+          currentChord = value;
+        });
+        const distinct = orderedUnique(starts.map((entry) => entry.chord));
+        return {
+          first: starts[0]?.chord || "",
+          entries: starts.length,
+          changes: Math.max(0, starts.length - 1),
+          distinct,
+          anchors: starts.map((entry) => `${entry.step}:${entry.chord}`),
+          density: starts.length / CHORD_STEPS,
+        };
+      }
+
+      function summarizeDrumTrack(values) {
+        const normalized = drumLengthArray(values).map(normalizeDrumValue);
+        const hits = normalized.filter((value) => value > 0).length;
+        const accents = normalized.filter((value) => value >= 0.95).length;
+        const sustains = normalized.filter((value) => value > 0 && value < 0.95).length;
+        return {
+          hits,
+          accents,
+          sustains,
+          rests: DRUM_STEPS - hits,
+          density: hits / DRUM_STEPS,
+        };
+      }
+
+      function summarizeBassEvents(events) {
+        const normalized = normalizeBassEvents(events);
+        const activeTicks = normalized.reduce((sum, event) => sum + Math.max(1, event.length), 0);
+        const sustainTicks = normalized.reduce((sum, event) => sum + Math.max(0, event.length - 1), 0);
+        const distinct = orderedUnique(normalized.map((event) => bassNoteLabel(event)));
+        return {
+          notes: normalized.length,
+          sustainTicks,
+          activeTicks,
+          density: activeTicks / BASS_TICKS,
+          first: normalized[0] ? bassNoteLabel(normalized[0]) : "",
+          distinct,
+        };
+      }
+
+      function inferSceneRole(name, index, totalScenes) {
+        const normalized = String(name || "").trim().toLowerCase();
+        const roleMap = [
+          ["intro", "intro"],
+          ["verse", "verse"],
+          ["chorus", "chorus"],
+          ["hook", "chorus"],
+          ["bridge", "bridge"],
+          ["break", "breakdown"],
+          ["drop", "drop"],
+          ["outro", "outro"],
+          ["ending", "outro"],
+          ["dub", "dub"],
+          ["inst", "instrumental"],
+        ];
+        const matched = roleMap.find(([token]) => normalized.includes(token));
+        if (matched) return matched[1];
+        if (index === 0) return "intro";
+        if (index === totalScenes - 1) return "outro";
+        return "section";
+      }
+
+      function summarizeScene(scene, index, totalScenes) {
+        const rhythm = summarizeChordLayer(scene.rhythm);
+        const harmony = summarizeChordLayer(scene.harmony);
+        const bass = summarizeBassEvents(scene.bass);
+        const drums = Object.fromEntries(TRACKS.map((track) => [track.key, summarizeDrumTrack(scene.drums[track.key])]));
+        return {
+          role: inferSceneRole(scene.name, index, totalScenes),
+          rhythm,
+          harmony,
+          bass,
+          drums,
+        };
+      }
+
       function exportDubText() {
         const bassLayer = state.bass.layers[0] || { shape: "sine", detune: 0, gain: 1 };
+        const sceneSummaries = state.scenes.map((scene, index) => summarizeScene(scene, index, state.scenes.length));
         const lines = [
           "; skanker dub export",
           `; tempo: ${state.bpm}`,
@@ -1441,13 +1637,16 @@
             ["detune", bassLayer.detune],
             ["layer_gain", bassLayer.gain],
           ])}`,
+          `; skanker.arrangement: ${state.scenes.map((scene, index) => `${dubSceneLabel(index)}:${sceneSummaries[index].role}`).join("|")}`,
           "",
         ];
         state.scenes.forEach((scene, index) => {
           const rhythm = formatDubChordLayer(scene.rhythm);
           const harmony = formatDubChordLayer(scene.harmony);
+          const summary = sceneSummaries[index];
           lines.push(`@${dubSceneLabel(index)}`);
           lines.push(`  ; scene.name: ${dubLineComment(scene.name)}`);
+          lines.push(`  ; scene.role: ${summary.role}`);
           lines.push(`  ; scene.mutes: ${dubMetaMap([
             ["rhythm", Boolean(scene.mutes?.rhythm)],
             ["harmony", Boolean(scene.mutes?.harmony)],
@@ -1461,6 +1660,50 @@
             track.key,
             scene.trackVolumes[track.key],
           ]))}`);
+          lines.push(`  ; scene.rhythm_summary: ${dubMetaMap([
+            ["first", summary.rhythm.first || "none"],
+            ["entries", summary.rhythm.entries],
+            ["changes", summary.rhythm.changes],
+            ["density", summary.rhythm.density],
+            ["distinct", summary.rhythm.distinct.join("|") || "none"],
+            ["anchors", summary.rhythm.anchors.join("|") || "none"],
+          ])}`);
+          lines.push(`  ; scene.harmony_summary: ${dubMetaMap([
+            ["first", summary.harmony.first || "none"],
+            ["entries", summary.harmony.entries],
+            ["changes", summary.harmony.changes],
+            ["density", summary.harmony.density],
+            ["distinct", summary.harmony.distinct.join("|") || "none"],
+            ["anchors", summary.harmony.anchors.join("|") || "none"],
+          ])}`);
+          lines.push(`  ; scene.groove_density: ${dubMetaMap([
+            ["kick", summary.drums.kick.density],
+            ["snare", summary.drums.snare.density],
+            ["hihat", summary.drums.hihat.density],
+            ["openhat", summary.drums.openhat.density],
+            ["bass", summary.bass.density],
+            ["rhythm", summary.rhythm.density],
+            ["harmony", summary.harmony.density],
+          ])}`);
+          lines.push(`  ; scene.groove_counts: ${dubMetaMap([
+            ["kick_hits", summary.drums.kick.hits],
+            ["snare_hits", summary.drums.snare.hits],
+            ["hihat_hits", summary.drums.hihat.hits],
+            ["openhat_hits", summary.drums.openhat.hits],
+            ["drum_accents", TRACKS.reduce((sum, track) => sum + summary.drums[track.key].accents, 0)],
+            ["bass_notes", summary.bass.notes],
+            ["bass_sustain_ticks", summary.bass.sustainTicks],
+            ["rhythm_entries", summary.rhythm.entries],
+            ["harmony_entries", summary.harmony.entries],
+          ])}`);
+          lines.push(`  ; scene.bass_summary: ${dubMetaMap([
+            ["first", summary.bass.first || "none"],
+            ["notes", summary.bass.notes],
+            ["sustain_ticks", summary.bass.sustainTicks],
+            ["active_ticks", summary.bass.activeTicks],
+            ["density", summary.bass.density],
+            ["distinct", summary.bass.distinct.join("|") || "none"],
+          ])}`);
           lines.push(`  #rhythm 1.0 ${rhythm.pattern}${rhythm.pool ? ` ${rhythm.pool}` : ""}`);
           lines.push(`  #harmony 1.0 ${harmony.pattern}${harmony.pool ? ` ${harmony.pool}` : ""}`);
           lines.push(`  #bass ${state.bass.volume.toFixed(2)} ${formatDubBassPattern(scene.bass)} ${formatBassNotes(scene.bass)}`.trimEnd());
@@ -1652,7 +1895,7 @@
           if (repeat) {
             const previous = expanded[expanded.length - 1];
             if (!previous) return;
-            const count = Math.max(1, Math.min(SCENE_SLOTS, Number(repeat[1]) || 1));
+            const count = Math.max(1, Number(repeat[1]) || 1);
             for (let index = 1; index < count; index += 1) expanded.push(previous);
             return;
           }
@@ -1732,10 +1975,7 @@
         const orderedNames = order.filter((name) => scenesByName.has(name));
         if (!orderedNames.length) throw new Error("No DUB sections found to import.");
         state.bpm = nextBpm;
-        state.scenes = Array.from({ length: SCENE_SLOTS }, (_, index) => {
-          const scene = scenesByName.get(orderedNames[index]);
-          return normalizeScene(scene, index);
-        });
+        state.scenes = orderedNames.map((name, index) => normalizeScene(scenesByName.get(name), index));
         state.currentScene = 0;
         state.pendingScene = null;
         releaseHarmony(audioContext?.currentTime || 0);
@@ -1767,11 +2007,19 @@
       function normalizeScene(rawScene, index) {
         const blankScene = createBlankScene(index);
         const source = rawScene && typeof rawScene === "object" ? rawScene : {};
+        const rhythm = fixedLengthArray(source.rhythm, "", CHORD_STEPS).map((value) => String(value || ""));
+        const harmony = fixedLengthArray(source.harmony, "", CHORD_STEPS).map((value) => String(value || ""));
+        const bass = normalizeBassEvents(source.bass);
         return {
           name: typeof source.name === "string" && source.name.trim() ? source.name.trim() : blankScene.name,
-          rhythm: fixedLengthArray(source.rhythm, "", CHORD_STEPS).map((value) => String(value || "")),
-          harmony: fixedLengthArray(source.harmony, "", CHORD_STEPS).map((value) => String(value || "")),
-          bass: normalizeBassEvents(source.bass),
+          rhythm,
+          harmony,
+          chordPoolText: {
+            rhythm: chordPoolTextState(rhythm, source.chordPoolText?.rhythm),
+            harmony: chordPoolTextState(harmony, source.chordPoolText?.harmony),
+          },
+          bass,
+          bassText: bassTextState(bass, source.bassText),
           drums: Object.fromEntries(TRACKS.map((track) => [
             track.key,
             drumLengthArray(source.drums?.[track.key]).map(normalizeDrumValue),
@@ -1941,6 +2189,9 @@
         return {
           version: 1,
           presetName: PRESET_NAME,
+          uiMode: state.uiMode,
+          songTitle: state.songTitle,
+          songNote: state.songNote,
           bpm: state.bpm,
           currentScene: state.currentScene,
           loopActiveScene: state.loopActiveScene,
@@ -1974,8 +2225,14 @@
           const preset = JSON.parse(rawPreset);
           if (!preset || typeof preset !== "object") return;
 
+          state.uiMode = normalizeUiMode(preset.uiMode);
+          state.songTitle = typeof preset.songTitle === "string" && preset.songTitle.trim()
+            ? preset.songTitle.trim()
+            : state.songTitle;
+          state.songNote = typeof preset.songNote === "string"
+            ? preset.songNote.trim()
+            : state.songNote;
           state.bpm = clampNumber(preset.bpm, 60, 200, state.bpm);
-          state.currentScene = Math.trunc(clampNumber(preset.currentScene, 0, state.scenes.length - 1, 0));
           state.loopActiveScene = Boolean(preset.loopActiveScene);
           state.strumLength = clampNumber(preset.strumLength, 0.05, 0.25, state.strumLength);
           state.padAttack = clampNumber(preset.padAttack, 0.02, 0.4, state.padAttack);
@@ -2013,7 +2270,11 @@
           state.chordCatalog = preset.chordCatalog && typeof preset.chordCatalog === "object"
             ? Object.fromEntries(Object.entries(preset.chordCatalog).map(([name, notes]) => [chordName(name), String(notes || "")]).filter(([name]) => name))
             : state.chordCatalog;
-          state.scenes = Array.from({ length: state.scenes.length }, (_, index) => normalizeScene(preset.scenes?.[index], index));
+          const savedScenes = Array.isArray(preset.scenes) && preset.scenes.length
+            ? preset.scenes.map((scene, index) => normalizeScene(scene, index))
+            : Array.from({ length: INITIAL_SCENE_COUNT }, (_, index) => createScene(index));
+          state.scenes = savedScenes;
+          state.currentScene = Math.trunc(clampNumber(preset.currentScene, 0, state.scenes.length - 1, 0));
         } catch (error) {
           console.warn("Could not load Skanker preset", error);
         }
@@ -2030,7 +2291,9 @@
 
       function renderScenes() {
         el.sceneTabs.replaceChildren();
-        el.sceneLoopToggle.checked = state.loopActiveScene;
+        el.sceneLoopToggle.checked = shouldLoopActiveScene();
+        el.sceneLoopToggle.disabled = state.uiMode === "edit";
+        el.sceneLoopToggle.title = state.uiMode === "edit" ? "Edit mode always loops the active scene." : "";
         state.scenes.forEach((scene, index) => {
           const row = document.createElement("div");
           row.className = "scene-tab-row";
@@ -2039,8 +2302,7 @@
           const tab = document.createElement("button");
           tab.type = "button";
           tab.draggable = true;
-          const slotLabel = index === 9 ? "0" : String(index + 1);
-          tab.textContent = `${slotLabel}: ${scene.name}`;
+          tab.textContent = scene.name;
           tab.classList.toggle("active", index === state.currentScene);
           tab.classList.toggle("pending", index === state.pendingScene);
           tab.addEventListener("click", () => selectScene(index));
@@ -2101,16 +2363,27 @@
           el.sceneTabs.append(row);
         });
 
+        const addSceneButton = document.createElement("button");
+        addSceneButton.type = "button";
+        addSceneButton.className = "scene-list-action";
+        addSceneButton.textContent = "+ Scene";
+        addSceneButton.addEventListener("click", addScene);
+        el.sceneTabs.append(addSceneButton);
+
         const clone = document.createElement("button");
+        clone.type = "button";
+        clone.className = "scene-list-action";
         clone.textContent = "+ Clone";
-        clone.disabled = state.scenes.every((scene, index) => index === state.currentScene || hasContent(scene));
         clone.addEventListener("click", cloneCurrentScene);
         el.sceneTabs.append(clone);
 
         const deleteButton = document.createElement("button");
-        deleteButton.textContent = "Clear Scene";
-        deleteButton.disabled = !hasContent(currentScene());
-        deleteButton.addEventListener("click", clearCurrentScene);
+        deleteButton.type = "button";
+        deleteButton.className = "scene-list-action";
+        deleteButton.textContent = "Delete Scene";
+        deleteButton.disabled = state.scenes.length <= 1;
+        deleteButton.title = state.scenes.length <= 1 ? "Keep at least one scene." : "";
+        deleteButton.addEventListener("click", deleteCurrentScene);
         el.sceneTabs.append(deleteButton);
       }
 
@@ -2145,8 +2418,12 @@
         return fromIndex;
       }
 
+      function shouldLoopActiveScene() {
+        return state.uiMode === "edit" || state.loopActiveScene;
+      }
+
       function advanceSceneSequence(time) {
-        if (state.loopActiveScene && state.pendingScene === null) return;
+        if (shouldLoopActiveScene() && state.pendingScene === null) return;
         const target = state.pendingScene !== null
           ? state.pendingScene
           : nextContentSceneIndex(state.currentScene);
@@ -2159,10 +2436,19 @@
       }
 
       function cloneCurrentScene() {
-        const target = state.scenes.findIndex((scene, index) => index !== state.currentScene && !hasContent(scene));
-        if (target === -1) return;
-        state.scenes[target] = cloneSceneData(currentScene(), `${currentScene().name} copy`);
+        const target = state.currentScene + 1;
+        state.scenes.splice(target, 0, cloneSceneData(currentScene(), `${currentScene().name} copy`));
         state.currentScene = target;
+        reindexSceneNames();
+        savePreset();
+        renderAll();
+      }
+
+      function addScene() {
+        const target = state.currentScene + 1;
+        state.scenes.splice(target, 0, createBlankScene(target));
+        state.currentScene = target;
+        reindexSceneNames();
         savePreset();
         renderAll();
       }
@@ -2223,13 +2509,19 @@
         renderAll();
       }
 
-      function clearCurrentScene() {
-        const scene = currentScene();
-        if (!hasContent(scene)) return;
-        if (!confirmBlocking(`Clear ${scene.name}? This removes its chords, bassline, and drums but keeps the scene slot.`)) return;
-        const clearingScene = state.currentScene;
-        state.scenes[clearingScene] = createBlankScene(clearingScene);
-        if (state.pendingScene === clearingScene) state.pendingScene = null;
+      function deleteCurrentScene() {
+        if (state.scenes.length <= 1) return;
+        const deletingScene = state.currentScene;
+        const scene = state.scenes[deletingScene];
+        if (!confirmBlocking(`Delete ${scene.name}? This removes the scene from the arrangement.`)) return;
+        state.scenes.splice(deletingScene, 1);
+        if (state.pendingScene === deletingScene) {
+          state.pendingScene = null;
+        } else if (state.pendingScene !== null && state.pendingScene > deletingScene) {
+          state.pendingScene -= 1;
+        }
+        state.currentScene = Math.max(0, Math.min(deletingScene, state.scenes.length - 1));
+        reindexSceneNames();
         releaseHarmony(audioContext?.currentTime || 0);
         savePreset();
         renderAll();
@@ -2335,8 +2627,22 @@
         el.soundDialog.close();
       }
 
+      function openMixer() {
+        if (typeof el.mixerDialog.showModal === "function") {
+          el.mixerDialog.showModal();
+        } else {
+          el.mixerDialog.setAttribute("open", "");
+        }
+        renderShell();
+      }
+
+      function closeMixer() {
+        el.mixerDialog.close();
+        renderShell();
+      }
+
       function openBassEditor() {
-        renderBassEditor();
+        renderBassControls();
         if (typeof el.bassEditorDialog.showModal === "function") {
           el.bassEditorDialog.showModal();
         } else {
@@ -2346,6 +2652,38 @@
 
       function closeBassEditor() {
         el.bassEditorDialog.close();
+      }
+
+      function openChordPresets() {
+        state.chordPresetPanelOpen = true;
+        renderChordPresetPanel();
+        if (typeof el.chordPresetsDialog.showModal === "function") {
+          el.chordPresetsDialog.showModal();
+        } else {
+          el.chordPresetsDialog.setAttribute("open", "");
+        }
+      }
+
+      function closeChordPresets() {
+        state.chordPresetPanelOpen = false;
+        renderChordPresetPanel();
+        el.chordPresetsDialog.close();
+      }
+
+      function openDrumPresets() {
+        state.drumPresetPanelOpen = true;
+        renderDrumPresetPanel();
+        if (typeof el.drumPresetsDialog.showModal === "function") {
+          el.drumPresetsDialog.showModal();
+        } else {
+          el.drumPresetsDialog.setAttribute("open", "");
+        }
+      }
+
+      function closeDrumPresets() {
+        state.drumPresetPanelOpen = false;
+        renderDrumPresetPanel();
+        el.drumPresetsDialog.close();
       }
 
       function openChordEditor() {
@@ -2469,7 +2807,6 @@
 
       function renderChordPresetPanel() {
         el.chordPresetPanel.replaceChildren();
-        el.chordPresetPanel.classList.toggle("open", state.chordPresetPanelOpen);
         el.chordPresetsToggle.classList.toggle("active", state.chordPresetPanelOpen);
         if (!state.chordPresetPanelOpen) return;
 
@@ -2583,44 +2920,122 @@
         const scene = currentScene();
         el.rhythmMute.checked = Boolean(scene.mutes?.rhythm);
         el.harmonyMute.checked = Boolean(scene.mutes?.harmony);
-        for (let step = 0; step < CHORD_STEPS; step += 1) {
-          const cell = document.createElement("div");
-          cell.className = "chord-cell";
-          cell.classList.toggle("beat", step % 4 === 0);
-          cell.classList.toggle("playing", step === state.playhead);
-          cell.dataset.step = String(step);
-          cell.innerHTML = `
-            <span class="step-number">${step + 1}</span>
-            <label class="layer-row rhythm">
-              <input class="chord-input ${scene.rhythm[step] && !parseChord(scene.rhythm[step]) ? "invalid" : ""}" data-layer="rhythm" aria-label="Rhythm chord step ${step + 1}" value="${escapeAttr(scene.rhythm[step])}" />
-            </label>
-            <label class="layer-row harmony">
-              <input class="chord-input ${scene.harmony[step] && !parseChord(scene.harmony[step]) ? "invalid" : ""}" data-layer="harmony" aria-label="Harmony chord step ${step + 1}" value="${escapeAttr(scene.harmony[step])}" />
-            </label>
-          `;
-          cell.querySelectorAll(".chord-input").forEach((input) => bindChordInput(input, step));
-          bindStepDrag(cell, { type: "chords", trackKey: "", step }, moveChordStep);
-          el.chordGrid.append(cell);
+        for (let partIndex = 0; partIndex < CHORD_EDITOR_PARTS; partIndex += 1) {
+          const shell = document.createElement("section");
+          shell.className = "chord-grid-part-shell";
+          shell.dataset.chordEditorPart = String(partIndex);
+
+          const row = document.createElement("div");
+          row.className = "step-grid chord-grid-row";
+          const stepOffset = partIndex * CHORD_EDITOR_PART_STEPS;
+          for (let localStep = 0; localStep < CHORD_EDITOR_PART_STEPS; localStep += 1) {
+            const step = stepOffset + localStep;
+            const cell = document.createElement("div");
+            cell.className = "chord-cell";
+            cell.classList.toggle("beat", step % 4 === 0);
+            cell.classList.toggle("playing", step === state.playhead);
+            cell.dataset.step = String(step);
+            cell.innerHTML = `
+              <span class="step-number">${step + 1}</span>
+              <label class="layer-row rhythm ${scene.mutes?.rhythm ? "muted" : ""}">
+                <span class="chord-display ${scene.rhythm[step] ? "" : "empty"}">${escapeAttr(scene.rhythm[step] || "")}</span>
+                <input class="chord-input ${scene.rhythm[step] && !parseChord(scene.rhythm[step]) ? "invalid" : ""}" data-layer="rhythm" aria-label="Rhythm chord step ${step + 1}" value="${escapeAttr(scene.rhythm[step])}" />
+              </label>
+              <label class="layer-row harmony ${scene.mutes?.harmony ? "muted" : ""}">
+                <span class="chord-display ${scene.harmony[step] ? "" : "empty"}">${escapeAttr(scene.harmony[step] || "")}</span>
+                <input class="chord-input ${scene.harmony[step] && !parseChord(scene.harmony[step]) ? "invalid" : ""}" data-layer="harmony" aria-label="Harmony chord step ${step + 1}" value="${escapeAttr(scene.harmony[step])}" />
+              </label>
+            `;
+            cell.querySelectorAll(".chord-input").forEach((input) => bindChordInput(input, step));
+            bindStepDrag(cell, { type: "chords", trackKey: "", step }, moveChordStep);
+            row.append(cell);
+          }
+
+          shell.append(row, buildInlineChordEditorPart(scene, partIndex));
+          el.chordGrid.append(shell);
         }
+      }
+
+      function buildInlineChordEditorPart(scene, partIndex) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "bass-editor chord-inline-part-editor";
+        wrapper.innerHTML = CHORD_EDITOR_LAYERS.map((layer) => `
+          <section data-chord-layer="${layer.key}" class="${scene.mutes?.[layer.key] ? "muted" : ""}">
+            <div class="bass-editor-part-head">
+              <strong>${layer.label}</strong>
+              <span class="bass-editor-stats"></span>
+            </div>
+            <label class="chord-inline-row"><span class="inline-label-icon" aria-hidden="true">${uiIcon("notes")}</span><span class="sr-only">Chords</span>
+              <span class="bass-text-overlay-wrap">
+                <span class="chord-pool-preview bass-text-preview" aria-hidden="true"></span>
+                <input class="chord-pool-input" value="${escapeAttr(scene.chordPoolText?.[layer.key]?.[partIndex] ?? formatChordPoolPart(scene[layer.key], partIndex))}" spellcheck="false" placeholder="Dm G C Am" />
+              </span>
+            </label>
+            <label class="chord-inline-row"><span class="inline-label-icon" aria-hidden="true">${uiIcon("pattern")}</span><span class="sr-only">Pattern</span>
+              <span class="bass-text-overlay-wrap">
+                <span class="chord-pattern-preview bass-text-preview" aria-hidden="true"></span>
+                <input class="chord-pattern-input" value="${escapeAttr(formatChordPatternPart(scene[layer.key], partIndex))}" spellcheck="false" placeholder="x--- ---- x--- ----" />
+              </span>
+            </label>
+          </section>
+        `).join("");
+        wrapper.querySelectorAll("[data-chord-layer]").forEach((layerEl) => {
+          const stepOffset = partIndex * CHORD_EDITOR_PART_STEPS;
+          const poolInput = layerEl.querySelector(".chord-pool-input");
+          const poolPreview = layerEl.querySelector(".chord-pool-preview");
+          const patternInput = layerEl.querySelector(".chord-pattern-input");
+          const patternPreview = layerEl.querySelector(".chord-pattern-preview");
+          const syncPreviewScroll = () => {
+            poolPreview.scrollLeft = poolInput.scrollLeft;
+            patternPreview.scrollLeft = patternInput.scrollLeft;
+          };
+          const syncEditor = () => {
+            updateChordEditorFromParts(el.chordGrid);
+            setChordPoolText(scene, layerEl.dataset.chordLayer, partIndex, poolInput.value);
+            renderChordPoolPreview(poolPreview, poolInput.value, patternInput.value, stepOffset);
+            renderChordPatternPreview(patternPreview, patternInput.value, stepOffset);
+            syncPreviewScroll();
+          };
+          poolInput.addEventListener("input", syncEditor);
+          poolInput.addEventListener("scroll", syncPreviewScroll);
+          poolInput.addEventListener("select", syncPreviewScroll);
+          poolInput.addEventListener("blur", () => {
+            poolInput.value = normalizeChordPoolText(poolInput.value);
+            setChordPoolText(scene, layerEl.dataset.chordLayer, partIndex, poolInput.value);
+            syncEditor();
+          });
+          patternInput.addEventListener("input", syncEditor);
+          patternInput.addEventListener("scroll", syncPreviewScroll);
+          patternInput.addEventListener("select", syncPreviewScroll);
+          updateChordEditorLayerValidity(layerEl);
+          renderChordPoolPreview(poolPreview, poolInput.value, patternInput.value, stepOffset);
+          renderChordPatternPreview(patternPreview, patternInput.value, stepOffset);
+        });
+        return wrapper;
       }
 
       function bindChordInput(input, step) {
         const scene = currentScene();
         const layer = input.dataset.layer;
         let committedValue = scene[layer][step];
+        const partIndex = Math.floor(step / CHORD_EDITOR_PART_STEPS);
         updateChordInputValidity(input);
         input.addEventListener("input", () => {
           scene[layer][step] = input.value.trim();
+          setChordPoolText(scene, layer, partIndex, formatChordPoolPart(scene[layer], partIndex));
           savePreset();
           updateChordInputValidity(input);
+          syncChordDisplay(input);
         });
         input.addEventListener("keydown", (event) => {
           if (event.key === "Enter") input.blur();
           if (event.key === "Escape") {
             input.value = committedValue;
             scene[layer][step] = committedValue;
+            setChordPoolText(scene, layer, partIndex, formatChordPoolPart(scene[layer], partIndex));
             savePreset();
             updateChordInputValidity(input);
+            syncChordDisplay(input);
             input.blur();
           }
         });
@@ -2633,9 +3048,11 @@
           const parsed = parseChord(value);
           committedValue = value && parsed ? parsed.label : value;
           scene[layer][step] = committedValue;
+          setChordPoolText(scene, layer, partIndex, formatChordPoolPart(scene[layer], partIndex));
           input.value = committedValue;
           savePreset();
           updateChordInputValidity(input);
+          syncChordDisplay(input);
         });
       }
 
@@ -2644,6 +3061,15 @@
         input.classList.toggle("invalid", invalid);
         input.toggleAttribute("aria-invalid", invalid);
         input.title = invalid ? "This entry is editable but will not play until it is a supported chord or explicit voicing." : "";
+      }
+
+      function syncChordDisplay(input) {
+        const display = input.closest(".layer-row")?.querySelector(".chord-display");
+        if (!display) return;
+        const value = input.value.trim();
+        display.textContent = value;
+        display.classList.toggle("empty", !value);
+        display.classList.toggle("invalid", Boolean(value) && !parseChord(value));
       }
 
       function renderBassRoll() {
@@ -2673,81 +3099,40 @@
         }
       }
 
-      function renderBassEditor() {
-        const editor = document.querySelector("[data-bass-editor]");
-        if (!editor) return;
-        editor.replaceChildren();
-        const scene = currentScene();
-
-        const head = document.createElement("div");
-        head.className = "bass-editor-head";
-        head.innerHTML = `
-          <strong>Bass Editor</strong>
-          <span class="drum-pattern-help">Notes must match pattern starts exactly. x starts a note, _ sustains after a note, _ after silence starts the next note, and - rests.</span>
-        `;
-
-        const fields = document.createElement("div");
-        fields.className = "bass-editor-fields";
-        fields.innerHTML = Array.from({ length: BASS_EDITOR_PARTS }, (_, partIndex) => {
-          const tickOffset = partIndex * BASS_EDITOR_PART_TICKS;
-          const startStep = Math.floor(tickOffset / BASS_TICKS_PER_STEP) + 1;
-          const endStep = Math.floor((tickOffset + BASS_EDITOR_PART_TICKS - 1) / BASS_TICKS_PER_STEP) + 1;
-          return `
-            <section class="bass-editor-part" data-bass-editor-part="${partIndex}">
-              <div class="bass-editor-part-head">
-                <strong>Part ${partIndex + 1}</strong>
-                <span class="bass-editor-stats"></span>
-                <span class="drum-pattern-help">Steps ${startStep}-${endStep}</span>
-              </div>
-              <label>Notes
-                <span class="bass-text-overlay-wrap">
-                  <span class="bass-notes-preview bass-text-preview" aria-hidden="true"></span>
-                  <input class="bass-notes-input" data-tick-offset="${tickOffset}" value="${escapeAttr(formatBassNotes(scene.bass, partIndex))}" spellcheck="false" placeholder="c2 g2 bb2 a2" />
-                </span>
-              </label>
-              <label>Pattern
-                <span class="bass-text-overlay-wrap">
-                  <span class="bass-pattern-preview bass-text-preview" aria-hidden="true"></span>
-                  <input class="bass-pattern-input" value="${escapeAttr(formatBassPatternPart(scene.bass, partIndex))}" spellcheck="false" placeholder="x--- ---- x--- ----" />
-                </span>
-              </label>
-            </section>
-          `;
-        }).join("");
-
-        fields.querySelectorAll("[data-bass-editor-part]").forEach((part) => {
-          const tickOffset = Number(part.querySelector(".bass-notes-input").dataset.tickOffset) || 0;
-          const notesInput = part.querySelector(".bass-notes-input");
-          const notesPreview = part.querySelector(".bass-notes-preview");
-          const patternInput = part.querySelector(".bass-pattern-input");
-          const patternPreview = part.querySelector(".bass-pattern-preview");
-          const stats = part.querySelector(".bass-editor-stats");
-          const syncPreviewScroll = () => {
-            notesPreview.scrollLeft = notesInput.scrollLeft;
-            patternPreview.scrollLeft = patternInput.scrollLeft;
-          };
-          const syncEditor = () => {
-            updateBassEditorFromParts(fields);
-            renderBassNotesPreview(notesPreview, notesInput.value, patternInput.value, tickOffset, BASS_EDITOR_PART_TICKS);
-            renderBassEditorPreview(patternPreview, patternInput.value, tickOffset, BASS_EDITOR_PART_TICKS);
-            syncPreviewScroll();
-          };
-          notesInput.addEventListener("input", syncEditor);
-          notesInput.addEventListener("scroll", syncPreviewScroll);
-          notesInput.addEventListener("select", syncPreviewScroll);
-          notesInput.addEventListener("blur", () => {
-            notesInput.value = normalizeBassNotesText(notesInput.value);
-            syncEditor();
-          });
-          patternInput.addEventListener("input", syncEditor);
-          patternInput.addEventListener("scroll", syncPreviewScroll);
-          patternInput.addEventListener("select", syncPreviewScroll);
-          updateBassEditorPartValidity(notesInput, patternInput, stats);
-          renderBassNotesPreview(notesPreview, notesInput.value, patternInput.value, tickOffset, BASS_EDITOR_PART_TICKS);
-          renderBassEditorPreview(patternPreview, patternInput.value, tickOffset, BASS_EDITOR_PART_TICKS);
+      function renderDrumLaneRoll(roll, values, trackKey) {
+        if (!roll) return;
+        const pattern = drumLengthArray(values).map(normalizeDrumValue);
+        roll.replaceChildren();
+        pattern.forEach((value, step) => {
+          if (value <= 0) return;
+          const pulse = document.createElement("span");
+          pulse.className = "drum-roll-pulse";
+          pulse.style.left = `${(step / DRUM_STEPS) * 100}%`;
+          pulse.style.width = `${Math.max(1.2, 100 / DRUM_STEPS - 0.25)}%`;
+          pulse.style.height = `${value >= 0.95 ? 58 : 36}%`;
+          pulse.style.opacity = value >= 0.95 ? "1" : "0.8";
+          pulse.dataset.track = trackKey;
+          roll.append(pulse);
         });
+        if (state.playhead >= 0) {
+          const playhead = document.createElement("span");
+          playhead.className = "drum-roll-playhead";
+          playhead.style.left = `${((state.playhead % DRUM_STEPS) / DRUM_STEPS) * 100}%`;
+          roll.append(playhead);
+        }
+      }
 
-        editor.append(head, fields);
+      function renderDrumLaneRolls() {
+        document.querySelectorAll("[data-drum-roll]").forEach((roll) => {
+          const trackKey = roll.getAttribute("data-drum-roll");
+          const scene = currentScene();
+          if (!trackKey || !scene?.drums?.[trackKey]) return;
+          renderDrumLaneRoll(roll, scene.drums[trackKey], trackKey);
+        });
+      }
+
+      function renderBassEditor() {
+        renderBassControls();
       }
 
       function bassActiveNoteIndex(rawPattern, activeTick, maxTicks = BASS_TICKS) {
@@ -2776,7 +3161,7 @@
         const bassPlayhead = state.playhead >= 0 ? state.playhead % STEPS : state.playhead;
         const activeNoteIndex = bassActiveNoteIndex(rawPattern, bassPlayhead * BASS_TICKS_PER_STEP - tickOffset, maxTicks);
         let noteIndex = 0;
-        const parts = String(rawNotes || "").match(/\s+|\S+/g) || [];
+        const parts = splitWhitespacePreservingParts(rawNotes);
         parts.forEach((part) => {
           if (/^\s+$/.test(part)) {
             preview.append(document.createTextNode(part));
@@ -2836,8 +3221,9 @@
           const patternInput = part.querySelector(".bass-pattern-input");
           const preview = part.querySelector(".bass-pattern-preview");
           const tickOffset = Number(notesInput?.dataset.tickOffset) || 0;
-          renderBassNotesPreview(notesPreview, notesInput?.value, patternInput?.value, tickOffset, BASS_EDITOR_PART_TICKS);
-          renderBassEditorPreview(preview, patternInput?.value, tickOffset, BASS_EDITOR_PART_TICKS);
+          const maxTicks = Number(notesInput?.dataset.maxTicks) || BASS_EDITOR_PART_TICKS;
+          renderBassNotesPreview(notesPreview, notesInput?.value, patternInput?.value, tickOffset, maxTicks);
+          renderBassEditorPreview(preview, patternInput?.value, tickOffset, maxTicks);
           if (notesPreview && notesInput) notesPreview.scrollLeft = notesInput.scrollLeft;
           if (preview && patternInput) preview.scrollLeft = patternInput.scrollLeft;
         });
@@ -2968,35 +3354,27 @@
       }
 
       function renderChordEditor() {
-        const editor = document.querySelector("[data-chord-editor]");
+        const editor = document.querySelector("#chord-editor-dialog [data-chord-editor]");
         if (!editor) return;
         editor.replaceChildren();
         const scene = currentScene();
-        const head = document.createElement("div");
-        head.className = "bass-editor-head";
-        head.innerHTML = `
-          <strong>Chord/Harmony Pattern Editor</strong>
-          <span class="drum-pattern-help">Each layer uses a chord pool plus x/_/- pattern. Both halves must be valid before the grid updates.</span>
-        `;
         const fields = document.createElement("div");
-        fields.className = "bass-editor-fields";
+        fields.className = "bass-editor-fields chord-inline-parts";
         fields.innerHTML = Array.from({ length: CHORD_EDITOR_PARTS }, (_, partIndex) => {
           const stepOffset = partIndex * CHORD_EDITOR_PART_STEPS;
-          const startStep = stepOffset + 1;
-          const endStep = stepOffset + CHORD_EDITOR_PART_STEPS;
           const layerHtml = CHORD_EDITOR_LAYERS.map((layer) => `
-            <section data-chord-layer="${layer.key}">
+            <section data-chord-layer="${layer.key}" class="${scene.mutes?.[layer.key] ? "muted" : ""}">
               <div class="bass-editor-part-head">
                 <strong>${layer.label}</strong>
                 <span class="bass-editor-stats"></span>
               </div>
-              <label>Chords
+              <label class="chord-inline-row"><span class="inline-label-icon" aria-hidden="true">${uiIcon("notes")}</span><span class="sr-only">Chords</span>
                 <span class="bass-text-overlay-wrap">
                   <span class="chord-pool-preview bass-text-preview" aria-hidden="true"></span>
                   <input class="chord-pool-input" value="${escapeAttr(formatChordPoolPart(scene[layer.key], partIndex))}" spellcheck="false" placeholder="Dm G C Am" />
                 </span>
               </label>
-              <label>Pattern
+              <label class="chord-inline-row"><span class="inline-label-icon" aria-hidden="true">${uiIcon("pattern")}</span><span class="sr-only">Pattern</span>
                 <span class="bass-text-overlay-wrap">
                   <span class="chord-pattern-preview bass-text-preview" aria-hidden="true"></span>
                   <input class="chord-pattern-input" value="${escapeAttr(formatChordPatternPart(scene[layer.key], partIndex))}" spellcheck="false" placeholder="x--- ---- x--- ----" />
@@ -3005,11 +3383,7 @@
             </section>
           `).join("");
           return `
-            <section class="bass-editor-part" data-chord-editor-part="${partIndex}">
-              <div class="bass-editor-part-head">
-                <strong>Part ${partIndex + 1}</strong>
-                <span class="drum-pattern-help">Steps ${startStep}-${endStep}</span>
-              </div>
+            <section class="bass-editor-part chord-inline-part-shell" data-chord-editor-part="${partIndex}">
               ${layerHtml}
             </section>
           `;
@@ -3041,7 +3415,7 @@
           renderChordPoolPreview(poolPreview, poolInput.value, patternInput.value, stepOffset);
           renderChordPatternPreview(patternPreview, patternInput.value, stepOffset);
         });
-        editor.append(head, fields);
+        editor.append(fields);
       }
 
       function renderChordEditorPlayhead() {
@@ -3064,7 +3438,10 @@
         const scene = currentScene();
         const beatLabels = document.createElement("div");
         beatLabels.className = "beat-label-row";
-        beatLabels.innerHTML = '<span class="beat-label-spacer" aria-hidden="true"></span>';
+        beatLabels.innerHTML = `
+          <span class="beat-label-spacer" aria-hidden="true"></span>
+          <span class="beat-label-actions-spacer" aria-hidden="true"></span>
+        `;
         const labelSteps = document.createElement("div");
         labelSteps.className = "step-grid";
         for (let step = 0; step < DRUM_STEPS; step += 1) {
@@ -3079,53 +3456,129 @@
         el.drumGrid.append(beatLabels);
         const bassRow = document.createElement("div");
         bassRow.className = "drum-row";
+        bassRow.classList.toggle("muted", Boolean(scene.mutes?.bass));
         const bassHead = document.createElement("div");
         bassHead.className = "track-head";
         bassHead.innerHTML = `
           <strong>Bass</strong>
-          <div class="bassline-roll" data-bassline-roll aria-hidden="true"></div>
-          <label class="track-mute-label">Mute <input type="checkbox" data-mute-bass ${scene.mutes?.bass ? "checked" : ""}></label>
-          <button type="button" data-open-bass-editor>Edit</button>
-          <button type="button" data-clear-bassline>Clear</button>
+          <div class="track-surface">
+            <div class="bassline-roll" data-bassline-roll aria-hidden="true"></div>
+          </div>
+          <div class="track-actions">
+            <button type="button" class="icon-button compact-button ${state.bass.enabled ? "active" : ""}" data-bass-inline-toggle aria-label="Toggle bass keyboard" title="Bass keyboard">${uiIcon("power")}</button>
+            <button type="button" class="icon-button compact-button record-button ${state.bass.recording ? "active" : ""}" data-bass-inline-record aria-label="Toggle bass recording" title="Record bass">${uiIcon("record")}</button>
+            <button type="button" class="icon-button compact-button" data-open-bass-editor aria-label="Bass settings" title="Bass settings">${uiIcon("settings")}</button>
+            <button type="button" class="icon-button compact-button danger" data-clear-bassline aria-label="Clear bassline" title="Clear bassline">${uiIcon("clear")}</button>
+            <label class="track-mute-label compact-track-toggle">Mute <input type="checkbox" data-mute-bass ${scene.mutes?.bass ? "checked" : ""}></label>
+          </div>
         `;
+        const bassText = scene.bassText || bassTextState(scene.bass);
+        const bassEditor = document.createElement("div");
+        bassEditor.className = "bass-inline-editor";
+        bassEditor.innerHTML = `
+          <div class="bass-inline-head">
+            <span class="bass-editor-stats"></span>
+          </div>
+          <section class="bass-editor-part bass-inline-part" data-bass-editor-part="0">
+            <label class="bass-inline-row"><span class="inline-label-icon" aria-hidden="true">${uiIcon("notes")}</span><span class="sr-only">Notes</span>
+              <span class="bass-text-overlay-wrap">
+                <span class="bass-notes-preview bass-text-preview" aria-hidden="true"></span>
+                <input class="bass-notes-input" data-tick-offset="0" data-max-ticks="${BASS_TICKS}" value="${escapeAttr(bassText.notes)}" spellcheck="false" placeholder="c2 g2 bb2 a2" />
+              </span>
+            </label>
+            <label class="bass-inline-row"><span class="inline-label-icon" aria-hidden="true">${uiIcon("pattern")}</span><span class="sr-only">Pattern</span>
+              <span class="bass-text-overlay-wrap">
+                <span class="bass-pattern-preview bass-text-preview" aria-hidden="true"></span>
+                <input class="bass-pattern-input" value="${escapeAttr(bassText.pattern)}" spellcheck="false" placeholder="x--- ---- x--- ----" />
+              </span>
+            </label>
+          </section>
+          <p class="bassline-help">Record mode overwrites the current fine pulse with the newest bass input. x starts a note, _ sustains, and - rests.</p>
+        `;
+        const bassToggleButton = bassHead.querySelector("[data-bass-inline-toggle]");
+        const bassRecordButton = bassHead.querySelector("[data-bass-inline-record]");
         bassHead.querySelector("[data-mute-bass]").addEventListener("change", (event) => {
           scene.mutes.bass = event.target.checked;
           savePreset();
           applyVolumes();
+          renderDrumGrid();
         });
+        bassToggleButton.addEventListener("click", () => toggleBassKeyboard());
+        bassRecordButton.addEventListener("click", () => toggleBassRecording());
         bassHead.querySelector("[data-open-bass-editor]").addEventListener("click", openBassEditor);
         bassHead.querySelector("[data-clear-bassline]").addEventListener("click", () => {
           if (!scene.bass.length) return;
           if (!confirmBlocking(`Clear bassline for ${scene.name}?`)) return;
           scene.bass = [];
+          scene.bassText = bassTextState(scene.bass);
           savePreset();
-          renderBassRoll();
-          renderBassEditor();
+          renderDrumGrid();
         });
-        const bassHelp = document.createElement("div");
-        bassHelp.className = "bassline-help";
-        bassHelp.textContent = "Record mode overwrites the current fine pulse with the newest bass input.";
-        bassRow.append(bassHead, bassHelp);
+        const inlinePart = bassEditor.querySelector("[data-bass-editor-part]");
+        const notesInput = inlinePart.querySelector(".bass-notes-input");
+        const notesPreview = inlinePart.querySelector(".bass-notes-preview");
+        const patternInput = inlinePart.querySelector(".bass-pattern-input");
+        const patternPreview = inlinePart.querySelector(".bass-pattern-preview");
+        const stats = inlinePart.parentElement.querySelector(".bass-editor-stats");
+        const syncBassPreviewScroll = () => {
+          notesPreview.scrollLeft = notesInput.scrollLeft;
+          patternPreview.scrollLeft = patternInput.scrollLeft;
+        };
+        const syncBassInlineEditor = () => {
+          updateBassEditorFromParts(bassEditor);
+          scene.bassText = {
+            notes: notesInput.value,
+            pattern: patternInput.value,
+          };
+          renderBassNotesPreview(notesPreview, notesInput.value, patternInput.value, 0, BASS_TICKS);
+          renderBassEditorPreview(patternPreview, patternInput.value, 0, BASS_TICKS);
+          syncBassPreviewScroll();
+        };
+        notesInput.addEventListener("input", syncBassInlineEditor);
+        notesInput.addEventListener("scroll", syncBassPreviewScroll);
+        notesInput.addEventListener("select", syncBassPreviewScroll);
+        notesInput.addEventListener("blur", () => {
+          notesInput.value = normalizeBassNotesText(notesInput.value);
+          syncBassInlineEditor();
+        });
+        patternInput.addEventListener("input", syncBassInlineEditor);
+        patternInput.addEventListener("scroll", syncBassPreviewScroll);
+        patternInput.addEventListener("select", syncBassPreviewScroll);
+        updateBassEditorPartValidity(notesInput, patternInput, stats, BASS_TICKS);
+        renderBassNotesPreview(notesPreview, notesInput.value, patternInput.value, 0, BASS_TICKS);
+        renderBassEditorPreview(patternPreview, patternInput.value, 0, BASS_TICKS);
+        bassRow.append(bassHead, bassEditor);
         el.drumGrid.append(bassRow);
         renderBassRoll();
         TRACKS.forEach((track) => {
           const row = document.createElement("div");
           row.className = "drum-row";
+          row.classList.toggle("muted", Boolean(scene.mutes?.drums?.[track.key]));
 
           const head = document.createElement("div");
           head.className = "track-head";
           head.innerHTML = `
             <strong>${track.label}</strong>
-            <span class="bass-text-overlay-wrap drum-pattern-overlay-wrap">
-              <span class="drum-pattern-preview bass-text-preview" aria-hidden="true"></span>
-              <input class="drum-pattern-input" value="${escapeAttr(formatDrumPattern(scene.drums[track.key]))}" aria-label="${track.label} text pattern" spellcheck="false" />
-            </span>
-            <label class="track-mute-label">Mute <input type="checkbox" data-mute-drum="${track.key}" ${scene.mutes?.drums?.[track.key] ? "checked" : ""}></label>
-            <label class="track-label drum-volume-label">Vol <input type="range" min="0" max="1" step="0.01" value="${scene.trackVolumes[track.key]}"></label>
+            <div class="track-surface">
+              <div class="drum-roll" data-drum-roll="${track.key}" aria-hidden="true"></div>
+            </div>
+            <div class="track-actions">
+              <label class="track-mute-label">Mute <input type="checkbox" data-mute-drum="${track.key}" ${scene.mutes?.drums?.[track.key] ? "checked" : ""}></label>
+            </div>
           `;
-          const patternInput = head.querySelector(".drum-pattern-input");
-          const patternPreview = head.querySelector(".drum-pattern-preview");
-          const patternWrap = head.querySelector(".drum-pattern-overlay-wrap");
+          const editor = document.createElement("div");
+          editor.className = "drum-inline-editor";
+          editor.innerHTML = `
+            <label class="drum-inline-row"><span class="inline-label-icon" aria-hidden="true">${uiIcon("pattern")}</span><span class="sr-only">${track.label} pattern</span>
+              <span class="bass-text-overlay-wrap drum-pattern-overlay-wrap">
+                <span class="drum-pattern-preview bass-text-preview" aria-hidden="true"></span>
+                <input class="drum-pattern-input" value="${escapeAttr(formatDrumPattern(scene.drums[track.key]))}" aria-label="${track.label} text pattern" spellcheck="false" />
+              </span>
+            </label>
+          `;
+          const patternInput = editor.querySelector(".drum-pattern-input");
+          const patternPreview = editor.querySelector(".drum-pattern-preview");
+          const patternWrap = editor.querySelector(".drum-pattern-overlay-wrap");
           const syncPatternPreviewScroll = () => {
             patternPreview.scrollLeft = patternInput.scrollLeft;
           };
@@ -3165,15 +3618,13 @@
             scene.mutes.drums[track.key] = event.target.checked;
             savePreset();
             applyVolumes();
-          });
-          head.querySelector(".track-label input").addEventListener("input", (event) => {
-            scene.trackVolumes[track.key] = Number(event.target.value);
-            savePreset();
+            renderDrumGrid();
           });
 
-          row.append(head);
+          row.append(head, editor);
           el.drumGrid.append(row);
         });
+        renderDrumLaneRolls();
       }
 
       function loadDrumPreset(genreKey, presetName) {
@@ -3320,7 +3771,6 @@
 
       function renderDrumPresetPanel() {
         el.drumPresetPanel.replaceChildren();
-        el.drumPresetPanel.classList.toggle("open", state.drumPresetPanelOpen);
         el.drumPresetsToggle.classList.toggle("active", state.drumPresetPanelOpen);
         if (!state.drumPresetPanelOpen) return;
 
@@ -3335,6 +3785,7 @@
         document.querySelectorAll(".playing").forEach((node) => node.classList.remove("playing"));
         document.querySelectorAll(`[data-step="${state.playhead}"]`).forEach((node) => node.classList.add("playing"));
         renderBassRoll();
+        renderDrumLaneRolls();
         renderBassEditorPlayhead();
         renderChordEditorPlayhead();
         renderDrumPatternPreviews();
@@ -3357,26 +3808,98 @@
         TRACKS.forEach((track) => renderSoundOptions(el.drumSounds[track.key], Object.entries(DRUM_KIT_CATALOG), state.sounds.drums[track.key]));
       }
 
+      function sceneShortcutLabel(index = state.currentScene) {
+        return String(index + 1);
+      }
+
+      function currentSongSubtitle() {
+        const scene = currentScene();
+        const slot = `Scene ${sceneShortcutLabel()}`;
+        const sceneLabel = scene.name && scene.name !== slot ? ` · ${scene.name}` : "";
+        if (state.isPlaying && state.playhead >= 0) {
+          return `${state.bpm} BPM · ${slot}${sceneLabel} · step ${state.playhead + 1}${activeChordStatus(scene, state.playhead)}`;
+        }
+        return `${state.bpm} BPM · ${slot}${sceneLabel} · stopped`;
+      }
+
+      function renderShell() {
+        document.body.classList.remove("mode-listen", "mode-edit", "mode-write", "editing");
+        document.body.classList.add(`mode-${state.uiMode}`);
+        if (state.uiMode === "edit") document.body.classList.add("editing");
+
+        const modes = [
+          [el.modeListen, "listen"],
+          [el.modeEdit, "edit"],
+          [el.modeWrite, "write"],
+        ];
+        modes.forEach(([button, mode]) => {
+          button.classList.toggle("active", state.uiMode === mode);
+          button.setAttribute("aria-selected", String(state.uiMode === mode));
+        });
+
+        el.songTitleDisplay.textContent = state.songTitle;
+        if (el.songTitleInput.textContent !== state.songTitle) el.songTitleInput.textContent = state.songTitle;
+        el.songTitleInput.contentEditable = String(state.uiMode === "edit");
+        el.songSubtitle.textContent = currentSongSubtitle();
+        el.songNoteDisplay.textContent = state.songNote || "Add a composer note for collaborators.";
+        if (el.songNoteInput.textContent !== state.songNote) el.songNoteInput.textContent = state.songNote;
+        el.songNoteInput.contentEditable = String(state.uiMode === "edit");
+        el.writeDub.value = exportDubText();
+        el.mixerOpen.classList.toggle("active", el.mixerDialog.hasAttribute("open"));
+      }
+
+      function setUiMode(mode) {
+        const nextMode = normalizeUiMode(mode);
+        if (state.uiMode === nextMode) return;
+        state.uiMode = nextMode;
+        savePreset();
+        renderShell();
+        renderScenes();
+      }
+
+      async function copyText(text, successLabel = "Copied") {
+        try {
+          await navigator.clipboard.writeText(text);
+          el.status.textContent = successLabel;
+          if (!state.isPlaying) {
+            window.setTimeout(() => {
+              if (!state.isPlaying) el.status.textContent = "Stopped";
+            }, 1200);
+          }
+        } catch (error) {
+          alertBlocking("Could not copy to clipboard.");
+        }
+      }
+
       function renderBassControls() {
         renderSoundOptions(el.bassPreset, Object.entries(BASS_PRESETS), state.bass.preset);
         renderSoundOptions(el.bassShape, BASS_SHAPES.map((shape) => [shape, { label: shape }]), state.bass.layers[0].shape);
-        el.bassToggle.textContent = state.bass.enabled ? "Bass Keyboard On" : "Bass Keyboard Off";
-        el.bassToggle.classList.toggle("active", state.bass.enabled);
-        el.bassRecordToggle.textContent = state.bass.recording ? "Record Bass On" : "Record Bass Off";
-        el.bassRecordToggle.classList.toggle("active", state.bass.recording);
+        if (el.bassToggle) {
+          el.bassToggle.textContent = state.bass.enabled ? "Bass Keyboard On" : "Bass Keyboard Off";
+          el.bassToggle.classList.toggle("active", state.bass.enabled);
+        }
+        if (el.bassRecordToggle) {
+          el.bassRecordToggle.textContent = state.bass.recording ? "Record Bass On" : "Record Bass Off";
+          el.bassRecordToggle.classList.toggle("active", state.bass.recording);
+        }
         el.bassOctave.value = state.bass.octave;
         el.bassVolume.value = state.bass.volume;
         el.bassGlide.value = state.bass.glide;
         el.bassRelease.value = state.bass.release;
+        TRACKS.forEach((track) => {
+          if (el.mixerDrumVolumes[track.key]) el.mixerDrumVolumes[track.key].value = currentScene().trackVolumes[track.key];
+        });
       }
 
       function renderAll() {
+        renderShell();
         renderSoundCatalog();
         renderBassControls();
         renderChordPresetPanel();
         renderDrumPresetPanel();
         renderScenes();
         renderChordGrid();
+        renderChordEditor();
         renderDrumGrid();
         el.bpm.value = state.bpm;
         el.strum.value = state.strumLength;
@@ -3393,23 +3916,6 @@
         if (!(target instanceof Element)) return false;
         if (target.closest("textarea, select")) return true;
         return Boolean(target.closest("[contenteditable]"));
-      }
-
-      function shouldIgnoreSceneShortcut(event) {
-        const target = event.target;
-        if (!(target instanceof Element)) return false;
-        if (target.closest("input, textarea, select")) return true;
-        return Boolean(target.closest("[contenteditable]"));
-      }
-
-      function handleSceneShortcut(event) {
-        if (event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
-        if (shouldIgnoreSceneShortcut(event)) return;
-        if (!/^[0-9]$/.test(event.key)) return;
-        const sceneIndex = event.key === "0" ? 9 : Number(event.key) - 1;
-        if (!state.scenes[sceneIndex]) return;
-        event.preventDefault();
-        selectScene(sceneIndex, true);
       }
 
       function handleTransportShortcut(event) {
@@ -3436,12 +3942,14 @@
         if (!state.bass.enabled) releaseAllBassNotes();
         savePreset();
         renderBassControls();
+        renderDrumGrid();
       }
 
       function toggleBassRecording(enabled = !state.bass.recording) {
         state.bass.recording = Boolean(enabled);
         savePreset();
         renderBassControls();
+        renderDrumGrid();
       }
 
       function setBassKeyPressed(code, pressed) {
@@ -3466,42 +3974,82 @@
 
       el.play.addEventListener("click", startPlayback);
       el.stop.addEventListener("click", () => stopPlayback());
+      el.modeListen.addEventListener("click", () => setUiMode("listen"));
+      el.modeEdit.addEventListener("click", () => setUiMode("edit"));
+      el.modeWrite.addEventListener("click", () => setUiMode("write"));
+      el.mixerOpen.addEventListener("click", openMixer);
+      el.mixerClose.addEventListener("click", closeMixer);
+      el.mixerDialog.addEventListener("close", renderShell);
+      el.songTitleInput.addEventListener("input", () => {
+        state.songTitle = el.songTitleInput.textContent.trim() || "Untitled Skank";
+        el.songTitleDisplay.textContent = state.songTitle;
+        savePreset();
+      });
+      el.songTitleInput.addEventListener("blur", () => {
+        state.songTitle = el.songTitleInput.textContent.trim() || "Untitled Skank";
+        el.songTitleInput.textContent = state.songTitle;
+        el.songTitleDisplay.textContent = state.songTitle;
+        savePreset();
+      });
+      el.songNoteInput.addEventListener("input", () => {
+        state.songNote = el.songNoteInput.textContent.trim();
+        el.songNoteDisplay.textContent = state.songNote || "Add a composer note for collaborators.";
+        savePreset();
+      });
+      el.songNoteInput.addEventListener("blur", () => {
+        state.songNote = el.songNoteInput.textContent.trim();
+        el.songNoteInput.textContent = state.songNote;
+        el.songNoteDisplay.textContent = state.songNote || "Add a composer note for collaborators.";
+        savePreset();
+      });
+      el.shareLink.addEventListener("click", () => copyText(window.location.href, "Link copied"));
       document.addEventListener("keydown", handleTransportShortcut, { capture: true });
-      document.addEventListener("keydown", handleSceneShortcut, { capture: true });
       document.addEventListener("keydown", handleBassKeyDown);
       document.addEventListener("keyup", handleBassKeyUp);
       el.sceneLoopToggle.addEventListener("change", (event) => {
         state.loopActiveScene = event.target.checked;
         savePreset();
+        renderScenes();
       });
       el.rhythmMute.addEventListener("change", (event) => {
         currentScene().mutes.rhythm = event.target.checked;
         savePreset();
         applyVolumes();
+        renderChordGrid();
+        renderChordEditor();
       });
       el.harmonyMute.addEventListener("change", (event) => {
         currentScene().mutes.harmony = event.target.checked;
         savePreset();
         applyVolumes();
+        renderChordGrid();
+        renderChordEditor();
       });
       el.drumPresetsToggle.addEventListener("click", () => {
-        state.drumPresetPanelOpen = !state.drumPresetPanelOpen;
+        if (state.drumPresetPanelOpen) {
+          closeDrumPresets();
+        } else {
+          openDrumPresets();
+        }
         savePreset();
-        renderDrumPresetPanel();
       });
-      el.dubExport.addEventListener("click", () => {
+      el.writeCopy.addEventListener("click", () => copyText(exportDubText(), "DUB copied"));
+      el.writeDownload.addEventListener("click", () => {
         downloadTextFile("skanker.dub", exportDubText(), "text/plain");
       });
-      el.dubImport.addEventListener("click", () => {
+      el.writeImport.addEventListener("click", () => {
         runBlockingAction(() => el.dubImportFile.click());
       });
       el.dubImportFile.addEventListener("change", (event) => {
         handleDubImportFile(event.target.files?.[0]);
       });
       el.chordPresetsToggle.addEventListener("click", () => {
-        state.chordPresetPanelOpen = !state.chordPresetPanelOpen;
+        if (state.chordPresetPanelOpen) {
+          closeChordPresets();
+        } else {
+          openChordPresets();
+        }
         savePreset();
-        renderChordPresetPanel();
       });
       el.bpm.addEventListener("change", (event) => setBpm(event.target.value));
       el.bpmDown.addEventListener("click", () => setBpm(state.bpm - 1));
@@ -3514,16 +4062,15 @@
         state.padAttack = Number(event.target.value);
         savePreset();
       });
-      el.bassToggle.addEventListener("click", () => toggleBassKeyboard());
-      el.bassRecordToggle.addEventListener("click", () => toggleBassRecording());
-      el.bassClear.addEventListener("click", () => {
+      if (el.bassToggle) el.bassToggle.addEventListener("click", () => toggleBassKeyboard());
+      if (el.bassRecordToggle) el.bassRecordToggle.addEventListener("click", () => toggleBassRecording());
+      if (el.bassClear) el.bassClear.addEventListener("click", () => {
         const scene = currentScene();
         if (!scene.bass.length) return;
         if (!confirmBlocking(`Clear bassline for ${scene.name}?`)) return;
         scene.bass = [];
         savePreset();
-        renderBassRoll();
-        renderBassEditor();
+        renderDrumGrid();
       });
       el.bassPreset.addEventListener("change", (event) => applyBassPreset(event.target.value));
       el.bassShape.addEventListener("change", (event) => {
@@ -3537,12 +4084,18 @@
         releaseAllBassNotes();
         savePreset();
         renderBassControls();
-        renderBassEditor();
       });
       el.bassVolume.addEventListener("input", (event) => {
         state.bass.volume = clampNumber(event.target.value, 0, 1, state.bass.volume);
         applyVolumes();
         savePreset();
+      });
+      TRACKS.forEach((track) => {
+        el.mixerDrumVolumes[track.key].addEventListener("input", (event) => {
+          currentScene().trackVolumes[track.key] = clampNumber(event.target.value, 0, 1, currentScene().trackVolumes[track.key]);
+          savePreset();
+          applyVolumes();
+        });
       });
       el.bassGlide.addEventListener("input", (event) => {
         state.bass.preset = "custom";
@@ -3615,7 +4168,20 @@
       el.soundDialog.addEventListener("cancel", closeSoundCatalog);
       el.bassEditorClose.addEventListener("click", closeBassEditor);
       el.bassEditorDialog.addEventListener("cancel", closeBassEditor);
-      el.chordEditorOpen.addEventListener("click", openChordEditor);
+      el.chordPresetsClose.addEventListener("click", closeChordPresets);
+      el.chordPresetsDialog.addEventListener("cancel", closeChordPresets);
+      el.chordPresetsDialog.addEventListener("close", () => {
+        state.chordPresetPanelOpen = false;
+        renderChordPresetPanel();
+        savePreset();
+      });
+      el.drumPresetsClose.addEventListener("click", closeDrumPresets);
+      el.drumPresetsDialog.addEventListener("cancel", closeDrumPresets);
+      el.drumPresetsDialog.addEventListener("close", () => {
+        state.drumPresetPanelOpen = false;
+        renderDrumPresetPanel();
+        savePreset();
+      });
       el.chordEditorClose.addEventListener("click", closeChordEditor);
       el.chordEditorDialog.addEventListener("cancel", closeChordEditor);
       el.catalogOpen.addEventListener("click", openCatalog);
