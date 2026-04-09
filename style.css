@@ -434,14 +434,20 @@
       }
 
       .project-actions {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto auto;
-        gap: 0.5rem;
-        align-items: center;
+        display: flex;
+        gap: 0.25rem;
+        justify-content: center;
       }
 
-      .project-actions select {
+      .project-actions button {
+        padding: 0.35rem 0.5rem;
+        font-size: 1rem;
+        line-height: 1;
+      }
+
+      .sidebar select#project-select {
         width: 100%;
+        margin-bottom: 0.5rem;
       }
 
       .workspace .panel {

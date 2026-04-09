@@ -214,6 +214,7 @@
         projectMeta: document.getElementById("project-meta"),
         projectSelect: document.getElementById("project-select"),
         projectLoad: document.getElementById("project-load"),
+        projectRemove: document.getElementById("project-remove"),
         projectClear: document.getElementById("project-clear"),
         strum: document.getElementById("strum"),
         padAttack: document.getElementById("pad-attack"),
@@ -2396,7 +2397,7 @@
         if (el.projectMeta) {
           el.projectMeta.textContent = project
             ? `${project.name}${state.dirty ? " · unsaved changes" : ""}`
-            : (state.dirty ? "Unsaved working session · modified" : "Unsaved working session");
+            : (state.dirty ? `Unsaved · ${state.songTitle} · modified` : `Unsaved · ${state.songTitle}`);
         }
         if (el.projectSave) {
           el.projectSave.classList.toggle("dirty", state.dirty || !project);
@@ -2424,6 +2425,7 @@
           if (!el.projectSelect.value && project) el.projectSelect.value = project.id;
         }
         if (el.projectLoad) el.projectLoad.disabled = !(el.projectSelect && el.projectSelect.value);
+        if (el.projectRemove) el.projectRemove.disabled = !(el.projectSelect && el.projectSelect.value);
       }
 
       function confirmDiscardUnsavedChanges(actionLabel) {
@@ -2433,11 +2435,10 @@
 
       function saveCurrentProject() {
         const existing = currentProject();
-        const nextName = promptBlocking("Project name", existing?.name || state.songTitle || "Untitled Project");
-        if (!nextName || !nextName.trim()) return;
+        const nextName = state.songTitle || "Untitled Project";
         const project = normalizeProjectEntry({
           id: existing?.id || `project-${Date.now()}`,
-          name: nextName.trim(),
+          name: nextName,
           updatedAt: new Date().toISOString(),
           snapshot: presetSnapshot(),
         });
@@ -2468,6 +2469,21 @@
         releaseAllBassNotes();
         renderAll();
         el.status.textContent = `Loaded ${project.name}`;
+      }
+
+      function removeSelectedProject() {
+        const projectId = el.projectSelect?.value;
+        const project = state.projects.find((entry) => entry.id === projectId);
+        if (!project) return;
+        if (!confirm(`Remove project "${project.name}"?`)) return;
+        state.projects = state.projects.filter((entry) => entry.id !== projectId);
+        if (state.currentProjectId === projectId) {
+          state.currentProjectId = null;
+          state.dirty = true;
+        }
+        saveProjects();
+        renderProjectState();
+        el.status.textContent = `Removed ${project.name}`;
       }
 
       function clearWorkingProject() {
@@ -4254,6 +4270,7 @@
       });
       el.projectSave.addEventListener("click", saveCurrentProject);
       el.projectLoad.addEventListener("click", loadSelectedProject);
+      el.projectRemove.addEventListener("click", removeSelectedProject);
       el.projectClear.addEventListener("click", clearWorkingProject);
       el.projectSelect.addEventListener("change", () => {
         el.projectLoad.disabled = !el.projectSelect.value;
