@@ -54,6 +54,7 @@
       };
       const PRESET_NAME = "default";
       const STORAGE_KEY = `skanker:preset:${PRESET_NAME}:v1`;
+      const PROJECTS_STORAGE_KEY = "skanker:projects:v1";
       const USER_DRUM_PRESETS_KEY = "skanker:drum-presets:v1";
       const USER_CHORD_PRESETS_KEY = "skanker:chord-progressions:v1";
       const SHARE_HASH_KEY = "s";
@@ -144,6 +145,9 @@
         activeChordPreset: null,
         userChordPresets: [],
         userChordPresetExport: "",
+        projects: [],
+        currentProjectId: null,
+        dirty: false,
         sounds: {
           rhythm: "internal",
           harmony: "internal",
@@ -206,6 +210,11 @@
         bpm: document.getElementById("bpm"),
         bpmDown: document.getElementById("bpm-down"),
         bpmUp: document.getElementById("bpm-up"),
+        projectSave: document.getElementById("project-save"),
+        projectMeta: document.getElementById("project-meta"),
+        projectSelect: document.getElementById("project-select"),
+        projectLoad: document.getElementById("project-load"),
+        projectClear: document.getElementById("project-clear"),
         strum: document.getElementById("strum"),
         padAttack: document.getElementById("pad-attack"),
         rhythmSound: document.getElementById("rhythm-sound"),
@@ -2212,6 +2221,72 @@
         };
       }
 
+      function defaultProjectSnapshot() {
+        return {
+          version: 1,
+          presetName: PRESET_NAME,
+          uiMode: "edit",
+          songTitle: "Untitled Project",
+          songNote: "",
+          bpm: 100,
+          currentScene: 0,
+          loopActiveScene: false,
+          strumLength: 0.12,
+          padAttack: 0.08,
+          drumPresetPanelOpen: false,
+          drumPresetGenre: "reggae",
+          activeDrumPreset: null,
+          chordPresetPanelOpen: false,
+          activeChordPreset: null,
+          sounds: {
+            rhythm: "internal",
+            harmony: "internal",
+            drums: { kick: "internal", snare: "internal", hihat: "internal", openhat: "internal" },
+          },
+          bass: normalizeBassSettings({}),
+          volumes: { master: 0.8, rhythm: 0.55, harmony: 0.35, drums: 0.75 },
+          chordCatalog: { ...DEFAULT_CHORD_CATALOG },
+          scenes: Array.from({ length: INITIAL_SCENE_COUNT }, (_, index) => createScene(index)),
+        };
+      }
+
+      function normalizeProjectEntry(source) {
+        if (!source || typeof source !== "object") return null;
+        const name = typeof source.name === "string" ? source.name.trim() : "";
+        if (!name) return null;
+        const snapshot = source.snapshot && typeof source.snapshot === "object" ? source.snapshot : null;
+        if (!snapshot) return null;
+        return {
+          id: typeof source.id === "string" && source.id.trim()
+            ? source.id.trim()
+            : `project-${Date.now()}`,
+          name,
+          updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : new Date().toISOString(),
+          snapshot,
+        };
+      }
+
+      function loadProjects() {
+        try {
+          const raw = window.localStorage.getItem(PROJECTS_STORAGE_KEY);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          const list = Array.isArray(parsed) ? parsed : parsed?.projects;
+          state.projects = Array.isArray(list) ? list.map(normalizeProjectEntry).filter(Boolean) : [];
+        } catch (error) {
+          console.warn("Could not load local projects", error);
+          state.projects = [];
+        }
+      }
+
+      function saveProjects() {
+        try {
+          window.localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify({ projects: state.projects }));
+        } catch (error) {
+          console.warn("Could not save local projects", error);
+        }
+      }
+
       function utf8ToBase64Url(text) {
         const bytes = new TextEncoder().encode(text);
         let binary = "";
@@ -2301,22 +2376,113 @@
       }
 
       function savePreset() {
-        try {
-          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(presetSnapshot()));
-        } catch (error) {
-          console.warn("Could not save Skanker preset", error);
-        }
+        state.dirty = true;
+        renderProjectState();
+        renderShell();
       }
 
       function loadPreset() {
-        try {
-          const rawPreset = window.localStorage.getItem(STORAGE_KEY);
-          if (!rawPreset) return;
-          const preset = JSON.parse(rawPreset);
-          applyPresetData(preset);
-        } catch (error) {
-          console.warn("Could not load Skanker preset", error);
+        applyPresetData(defaultProjectSnapshot());
+        state.currentProjectId = null;
+        state.dirty = false;
+      }
+
+      function currentProject() {
+        return state.projects.find((project) => project.id === state.currentProjectId) || null;
+      }
+
+      function renderProjectState() {
+        const project = currentProject();
+        if (el.projectMeta) {
+          el.projectMeta.textContent = project
+            ? `${project.name}${state.dirty ? " · unsaved changes" : ""}`
+            : (state.dirty ? "Unsaved working session · modified" : "Unsaved working session");
         }
+        if (el.projectSave) {
+          el.projectSave.classList.toggle("dirty", state.dirty || !project);
+          el.projectSave.textContent = project ? (state.dirty ? "SAVE" : "SAVED") : "SAVE";
+        }
+        if (el.projectSelect) {
+          const previousValue = el.projectSelect.value;
+          el.projectSelect.replaceChildren();
+          const placeholder = document.createElement("option");
+          placeholder.value = "";
+          placeholder.textContent = state.projects.length ? "Select project" : "No saved projects";
+          el.projectSelect.append(placeholder);
+          state.projects
+            .slice()
+            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+            .forEach((projectEntry) => {
+              const option = document.createElement("option");
+              option.value = projectEntry.id;
+              option.textContent = projectEntry.name;
+              el.projectSelect.append(option);
+            });
+          el.projectSelect.value = state.projects.some((projectEntry) => projectEntry.id === previousValue)
+            ? previousValue
+            : "";
+          if (!el.projectSelect.value && project) el.projectSelect.value = project.id;
+        }
+        if (el.projectLoad) el.projectLoad.disabled = !(el.projectSelect && el.projectSelect.value);
+      }
+
+      function confirmDiscardUnsavedChanges(actionLabel) {
+        if (!state.dirty) return true;
+        return confirmBlocking(`Discard unsaved changes and ${actionLabel}?`);
+      }
+
+      function saveCurrentProject() {
+        const existing = currentProject();
+        const nextName = promptBlocking("Project name", existing?.name || state.songTitle || "Untitled Project");
+        if (!nextName || !nextName.trim()) return;
+        const project = normalizeProjectEntry({
+          id: existing?.id || `project-${Date.now()}`,
+          name: nextName.trim(),
+          updatedAt: new Date().toISOString(),
+          snapshot: presetSnapshot(),
+        });
+        const index = state.projects.findIndex((entry) => entry.id === project.id);
+        if (index >= 0) state.projects.splice(index, 1, project);
+        else state.projects.push(project);
+        state.currentProjectId = project.id;
+        state.dirty = false;
+        saveProjects();
+        renderProjectState();
+        renderShell();
+        el.status.textContent = `Saved ${project.name}`;
+      }
+
+      function loadSelectedProject() {
+        const projectId = el.projectSelect?.value;
+        const project = state.projects.find((entry) => entry.id === projectId);
+        if (!project) return;
+        if (!confirmDiscardUnsavedChanges(`load ${project.name}`)) {
+          renderProjectState();
+          return;
+        }
+        if (state.isPlaying) stopPlayback(false);
+        applyPresetData(project.snapshot);
+        state.currentProjectId = project.id;
+        state.dirty = false;
+        releaseHarmony(audioContext?.currentTime || 0);
+        releaseAllBassNotes();
+        renderAll();
+        el.status.textContent = `Loaded ${project.name}`;
+      }
+
+      function clearWorkingProject() {
+        if (!confirmDiscardUnsavedChanges("clear the current working project")) {
+          renderProjectState();
+          return;
+        }
+        if (state.isPlaying) stopPlayback(false);
+        applyPresetData(defaultProjectSnapshot());
+        state.currentProjectId = null;
+        state.dirty = false;
+        releaseHarmony(audioContext?.currentTime || 0);
+        releaseAllBassNotes();
+        renderAll();
+        el.status.textContent = "Cleared working project";
       }
 
       function currentShareUrl() {
@@ -2337,6 +2503,8 @@
           const snapshot = decodeShareState(encoded);
           if (!snapshot) throw new Error("Invalid shared state payload");
           applyPresetData(snapshot);
+          state.currentProjectId = null;
+          state.dirty = false;
           return true;
         } catch (error) {
           console.warn("Could not load shared URL state", error);
@@ -3919,6 +4087,7 @@
         el.songNoteInput.contentEditable = String(state.uiMode === "edit");
         el.writeDub.value = exportDubText();
         el.mixerOpen.classList.toggle("active", el.mixerDialog.hasAttribute("open"));
+        renderProjectState();
       }
 
       function setUiMode(mode) {
@@ -3970,6 +4139,7 @@
         renderBassControls();
         renderChordPresetPanel();
         renderDrumPresetPanel();
+        renderProjectState();
         renderScenes();
         renderChordGrid();
         renderChordEditor();
@@ -4081,6 +4251,12 @@
           el.status.textContent = "Shared URL is large";
         }
         copyText(url, "Link copied");
+      });
+      el.projectSave.addEventListener("click", saveCurrentProject);
+      el.projectLoad.addEventListener("click", loadSelectedProject);
+      el.projectClear.addEventListener("click", clearWorkingProject);
+      el.projectSelect.addEventListener("change", () => {
+        el.projectLoad.disabled = !el.projectSelect.value;
       });
       document.addEventListener("keydown", handleTransportShortcut, { capture: true });
       document.addEventListener("keydown", handleBassKeyDown);
@@ -4271,6 +4447,7 @@
 
       loadUserDrumPresets();
       loadUserChordPresets();
+      loadProjects();
       loadPreset();
       applySharedStateFromUrl();
       applyUrlPresetIdentity();

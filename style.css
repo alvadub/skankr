@@ -89,6 +89,21 @@
         min-width: 0;
       }
 
+      .save-button {
+        min-width: 6rem;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        border-color: rgba(245, 184, 61, 0.52);
+      }
+
+      .save-button.dirty {
+        background: rgba(245, 184, 61, 0.16);
+        border-color: var(--rhythm);
+        color: var(--rhythm);
+        box-shadow: 0 0 0 2px rgba(245, 184, 61, 0.1);
+      }
+
       button,
       input,
       select {
@@ -410,6 +425,23 @@
       .panel {
         margin-top: 1rem;
         padding: 1rem 1rem 1.1rem;
+      }
+
+      .project-meta {
+        color: var(--muted);
+        font-size: 0.88rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .project-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 0.5rem;
+        align-items: center;
+      }
+
+      .project-actions select {
+        width: 100%;
       }
 
       .workspace .panel {
