@@ -60,8 +60,28 @@
       const SHARE_HASH_KEY = "s";
       const SHARE_STATE_VERSION = 1;
       const WEBAUDIOFONT_PLAYER_URL = "https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js";
+      const INTERNAL_SYNTH_PRESETS = {
+        sub: { label: "Sub Bass", filter: 380, release: 0.25, shape: "sine", detune: 0, gain: 0.9 },
+        organ: { label: "Organ", filter: 1200, release: 0.18, shape: "triangle", detune: -2, gain: 0.7 },
+        pad: { label: "Warm Pad", filter: 600, release: 0.5, shape: "sine", detune: 0, gain: 0.5 },
+        string: { label: "Strings", filter: 2500, release: 0.6, shape: "sawtooth", detune: 3, gain: 0.4, mix: 0.5 },
+        brass: { label: "Brass", filter: 1800, release: 0.2, shape: "sawtooth", detune: -5, gain: 0.65 },
+        synth: { label: "Synth", filter: 2000, release: 0.15, shape: "square", detune: 6, gain: 0.6 },
+        flute: { label: "Flute", filter: 1400, release: 0.25, shape: "sine", detune: -1, gain: 0.5 },
+        clav: { label: "Clav", filter: 3000, release: 0.08, shape: "square", detune: 2, gain: 0.55 },
+      };
+      const DEFAULT_INTERNAL_RHYTHM = "organ";
+      const DEFAULT_INTERNAL_HARMONY = "pad";
       const SOUND_CATALOG = {
         internal: { label: "Internal Synth" },
+        sub: { label: "Sub Bass", type: "internal", preset: "sub" },
+        organ: { label: "Organ", type: "internal", preset: "organ" },
+        pad: { label: "Warm Pad", type: "internal", preset: "pad" },
+        string: { label: "Strings", type: "internal", preset: "string" },
+        brass: { label: "Brass", type: "internal", preset: "brass" },
+        synth: { label: "Synth", type: "internal", preset: "synth" },
+        flute: { label: "Flute", type: "internal", preset: "flute" },
+        clav: { label: "Clav", type: "internal", preset: "clav" },
         piano: {
           label: "Acoustic Grand Piano",
           playerUrl: "https://surikov.github.io/webaudiofont/npm/dist/WebAudioFontPlayer.js",
@@ -82,8 +102,8 @@
         },
       };
       const SOUND_CHOICES = {
-        rhythm: ["internal", "guitar", "piano", "strings"],
-        harmony: ["internal", "strings", "piano", "guitar"],
+        rhythm: ["organ", "sub", "synth", "brass", "flute", "clav", "pad", "string", "piano", "guitar", "strings"],
+        harmony: ["pad", "string", "flute", "organ", "brass", "clav", "synth", "sub", "piano", "guitar"],
       };
       const BASS_PRESETS = {
         sub: { label: "Sub Sine", shape: "sine", filter: 420, glide: 0.04, release: 0.22 },
@@ -106,6 +126,8 @@
         power: { label: "WebAudioFont Power Kit", suffix: "16_FluidR3_GM_sf2_file" },
         electronic: { label: "WebAudioFont Electronic Kit", suffix: "20_FluidR3_GM_sf2_file" },
         tr808: { label: "WebAudioFont TR-808 Kit", suffix: "21_FluidR3_GM_sf2_file" },
+        tr78: { label: "WebAudioFont TR-78 Kit", suffix: "25_FluidR3_GM_sf2_file" },
+        cr8000: { label: "WebAudioFont CR-8000 Kit", suffix: "26_FluidR3_GM_sf2_file" },
         jazz: { label: "WebAudioFont Jazz Kit", suffix: "22_FluidR3_GM_sf2_file" },
         brush: { label: "WebAudioFont Brush Kit", suffix: "27_FluidR3_GM_sf2_file" },
         orchestra: { label: "WebAudioFont Orchestra Kit", suffix: "30_FluidR3_GM_sf2_file" },
@@ -149,8 +171,8 @@
         currentProjectId: null,
         dirty: false,
         sounds: {
-          rhythm: "internal",
-          harmony: "internal",
+          rhythm: "organ",
+          harmony: "pad",
           drums: { kick: "internal", snare: "internal", hihat: "internal", openhat: "internal" },
         },
         bass: {
@@ -622,6 +644,36 @@
         await Promise.all(loading);
       }
 
+      function getInternalSynthParams(soundKey) {
+        const key = SOUND_CATALOG[soundKey]?.preset || "synth";
+        return INTERNAL_SYNTH_PRESETS[key] || INTERNAL_SYNTH_PRESETS.synth;
+      }
+
+      function playInternalChord(frequencies, output, time, strumLength, release) {
+        const synthParams = getInternalSynthParams(state.sounds.rhythm);
+        const filter = audioContext.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(synthParams.filter, time);
+        const gainNode = audioContext.createGain();
+        const baseGain = synthParams.gain || 0.6;
+        const gainValue = baseGain / Math.max(1, frequencies.length);
+        gainNode.gain.setValueAtTime(0.0001, time);
+        gainNode.gain.exponentialRampToValueAtTime(gainValue, time + 0.003);
+        gainNode.gain.exponentialRampToValueAtTime(gainValue * 0.3, time + strumLength * 0.7);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, time + strumLength);
+        gainNode.connect(filter);
+        filter.connect(output);
+        frequencies.forEach((frequency, index) => {
+          const osc = audioContext.createOscillator();
+          osc.type = synthParams.shape || "sawtooth";
+          osc.frequency.setValueAtTime(frequency, time);
+          osc.detune.setValueAtTime((synthParams.detune || 0) + index * 3, time);
+          osc.connect(gainNode);
+          osc.start(time);
+          osc.stop(time + strumLength + release + 0.02);
+        });
+      }
+
       function playRhythm(chord, time) {
         const parsed = parseChord(chord, 55);
         if (!parsed || !audioContext) return;
@@ -634,23 +686,9 @@
         }
 
         const output = audioContext.createGain();
-        const filter = audioContext.createBiquadFilter();
-        filter.type = "lowpass";
-        filter.frequency.setValueAtTime(1850, time);
-        output.gain.setValueAtTime(0.0001, time);
-        output.gain.exponentialRampToValueAtTime(0.55 / parsed.frequencies.length, time + 0.005);
-        output.gain.exponentialRampToValueAtTime(0.0001, time + state.strumLength);
-        output.connect(filter).connect(rhythmGain);
+        output.connect(rhythmGain);
 
-        parsed.frequencies.forEach((frequency, index) => {
-          const osc = audioContext.createOscillator();
-          osc.type = index % 2 === 0 ? "sawtooth" : "square";
-          osc.frequency.setValueAtTime(frequency, time);
-          osc.detune.setValueAtTime((index - 1) * 4, time);
-          osc.connect(output);
-          osc.start(time);
-          osc.stop(time + state.strumLength + 0.03);
-        });
+        playInternalChord(parsed.frequencies, output, time, state.strumLength, 0.15);
       }
 
       function releaseHarmony(time) {
@@ -666,9 +704,15 @@
           harmonyVoice = null;
           return;
         }
+        const synthParams = harmonyVoice.synthParams || {};
+        const release = synthParams.release || 0.12;
         harmonyVoice.gain.gain.cancelScheduledValues(time);
-        harmonyVoice.gain.gain.setTargetAtTime(0.0001, time, 0.12);
-        harmonyVoice.oscillators.forEach((osc) => osc.stop(time + 0.45));
+        harmonyVoice.gain.gain.setTargetAtTime(0.0001, time, release);
+        if (harmonyVoice.filter) {
+          harmonyVoice.filter.frequency.cancelScheduledValues(time);
+          harmonyVoice.filter.frequency.setTargetAtTime(100, time, release);
+        }
+        harmonyVoice.oscillators.forEach((osc) => osc.stop(time + release + 0.3));
         harmonyVoice = null;
       }
 
@@ -692,25 +736,33 @@
           return;
         }
 
+        const synthParams = getInternalSynthParams(state.sounds.harmony);
         const gain = audioContext.createGain();
+        const filter = audioContext.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(synthParams.filter, time);
+        const baseGain = (synthParams.gain || 0.35);
+        const gainValue = baseGain / Math.max(1, parsed.frequencies.length);
         gain.gain.setValueAtTime(0.0001, time);
-        gain.gain.exponentialRampToValueAtTime(0.2 / parsed.frequencies.length, time + state.padAttack);
-        gain.connect(harmonyGain);
+        gain.gain.exponentialRampToValueAtTime(gainValue, time + state.padAttack);
+        gain.connect(filter);
+        filter.connect(harmonyGain);
 
         const oscillators = [];
+        const shapes = synthParams.mix ? ["sine", synthParams.shape || "sawtooth"] : [synthParams.shape || "sine", "sine"];
         parsed.frequencies.forEach((frequency) => {
-          ["sine", "triangle"].forEach((type, typeIndex) => {
+          shapes.forEach((type, typeIndex) => {
             const osc = audioContext.createOscillator();
             osc.type = type;
             osc.frequency.setValueAtTime(frequency, time);
-            osc.detune.setValueAtTime(typeIndex === 0 ? -3 : 3, time);
+            osc.detune.setValueAtTime((synthParams.detune || 0) + (typeIndex === 0 ? -3 : 3), time);
             osc.connect(gain);
             osc.start(time);
             oscillators.push(osc);
           });
         });
 
-        harmonyVoice = { label: parsed.label, gain, oscillators };
+        harmonyVoice = { label: parsed.label, gain, oscillators, filter, synthParams };
       }
 
       function makeNoise(duration) {
@@ -772,13 +824,13 @@
           return;
         }
 
-        const duration = trackKey === "openhat" ? 0.36 : 0.06;
+        const duration = trackKey === "openhat" ? 0.18 : 0.06;
         const noise = makeNoise(duration);
-        const filter = audioContext.createBiquadFilter();
         const gain = audioContext.createGain();
+        const filter = audioContext.createBiquadFilter();
         filter.type = "highpass";
         filter.frequency.setValueAtTime(6000, time);
-        gain.gain.setValueAtTime((trackKey === "openhat" ? 0.32 : 0.24) * level, time);
+        gain.gain.setValueAtTime((trackKey === "openhat" ? 0.18 : 0.24) * level, time);
         gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
         noise.connect(filter).connect(gain).connect(output);
         noise.start(time);
@@ -2240,8 +2292,8 @@
           chordPresetPanelOpen: false,
           activeChordPreset: null,
           sounds: {
-            rhythm: "internal",
-            harmony: "internal",
+            rhythm: "organ",
+            harmony: "pad",
             drums: { kick: "internal", snare: "internal", hihat: "internal", openhat: "internal" },
           },
           bass: normalizeBassSettings({}),
