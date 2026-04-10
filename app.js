@@ -217,14 +217,7 @@
         status: document.getElementById("status"),
         modeListen: document.getElementById("mode-listen"),
         modeEdit: document.getElementById("mode-edit"),
-        pasteOpen: document.getElementById("paste-open"),
-        pasteDialog: document.getElementById("paste-dialog"),
-        pasteClose: document.getElementById("paste-close"),
-        pasteInput: document.getElementById("paste-input"),
-        pastePlayBtn: document.getElementById("paste-play-btn"),
-        pasteImportBtn: document.getElementById("paste-import-btn"),
-        pasteError: document.getElementById("paste-error"),
-        shareLink: document.getElementById("share-link"),
+shareLink: document.getElementById("share-link"),
         mixerOpen: document.getElementById("mixer-open"),
         mixerDialog: document.getElementById("mixer-dialog"),
         mixerClose: document.getElementById("mixer-close"),
@@ -1925,7 +1918,7 @@
           }
           currentEvent = null;
         });
-        return noteIndex === notes.length ? sortAndTrimBassEvents(events) : null;
+        return events.length ? sortAndTrimBassEvents(events) : null;
       }
 
       function chordDubLineToSlots(pattern, chordsText) {
@@ -1951,7 +1944,7 @@
           }
           currentChord = "";
         });
-        return chordIndex === chords.length ? slots : null;
+        return chordIndex > 0 ? slots : null;
       }
 
       function drumDubLineToValues(pattern) {
@@ -4952,52 +4945,7 @@
         el.songNoteInput.style.height = el.songNoteInput.scrollHeight + "px";
         savePreset();
       });
-      (function wirePasteDialog() {
-        let pasteSnapshot = null;
-
-        function openPasteDialog() {
-          pasteSnapshot = null;
-          el.pasteInput.value = "";
-          el.pasteError.textContent = "";
-          el.pasteImportBtn.disabled = true;
-          el.pasteDialog.showModal();
-          el.pasteInput.focus();
-        }
-
-        function closePasteDialog(discard = true) {
-          if (discard && pasteSnapshot) discardPreview(pasteSnapshot);
-          pasteSnapshot = null;
-          el.pasteDialog.close();
-        }
-
-        el.pasteOpen.addEventListener("click", openPasteDialog);
-
-        el.pastePlayBtn.addEventListener("click", () => {
-          el.pasteError.textContent = "";
-          const result = previewDubText(el.pasteInput.value);
-          if (result.ok) {
-            pasteSnapshot = result.snapshot;
-            el.pasteImportBtn.disabled = false;
-          } else {
-            el.pasteError.textContent = result.error;
-          }
-        });
-
-        el.pasteImportBtn.addEventListener("click", () => {
-          pasteSnapshot = null; // keep state as-is
-          savePreset();
-          closePasteDialog(false);
-        });
-
-        el.pasteClose.addEventListener("click", () => closePasteDialog(true));
-
-        el.pasteDialog.addEventListener("cancel", (e) => {
-          e.preventDefault();
-          closePasteDialog(true);
-        });
-      })();
-
-      el.shareLink.addEventListener("click", () => {
+el.shareLink.addEventListener("click", () => {
         const url = currentShareUrlV2();
         if (url.length > 7800) {
           el.status.textContent = "Shared URL is large";
