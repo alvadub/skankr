@@ -166,6 +166,46 @@ describe('decodeDrumTrack', () => {
   });
 });
 
+describe('v1 → v2 migration compression', () => {
+  // Real drum arrays from RIDDIM v1 URL (INTRO scene)
+  const v1Kick   = [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0];
+  const v1Snare  = [0,0,0,1,0,0,1,0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,1,0];
+  const v1Hihat  = Array(32).fill(0);
+  const v1OpenHat = Array(32).fill(0);
+  // Real rhythm grid from INTRO scene (Dm every 4 steps, last slot Ddim)
+  const v1Rhythm = Array(32).fill("").map((_, i) => {
+    if (i === 31) return "";
+    if (i === 30) return "Ddim";
+    if (i % 4 === 2) return "Dm";
+    return "";
+  });
+
+  it('kick compresses from 32-element array to tile form', () => {
+    expect(encodeDrumTrack(v1Kick)).toBe("(X---)8");
+  });
+
+  it('snare compresses from 32-element array to tile form', () => {
+    expect(encodeDrumTrack(v1Snare)).toBe("(---X--X-)4");
+  });
+
+  it('empty hihat/openhat compress to !N form', () => {
+    expect(encodeDrumTrack(v1Hihat)).toBe("-!31");
+    expect(encodeDrumTrack(v1OpenHat)).toBe("-!31");
+  });
+
+  it('chord grid uses _!N for rest runs', () => {
+    const encoded = encodeChordRle(v1Rhythm);
+    expect(encoded).toContain("!");
+    expect(encoded).not.toMatch(/^[^!]{32}/); // not raw 32-slot expansion
+  });
+
+  it('round-trips all drum tracks losslessly', () => {
+    expect(decodeDrumTrack(encodeDrumTrack(v1Kick)).map(v => v > 0 ? 1 : 0)).toEqual(v1Kick);
+    expect(decodeDrumTrack(encodeDrumTrack(v1Snare)).map(v => v > 0 ? 1 : 0)).toEqual(v1Snare);
+    expect(decodeDrumTrack(encodeDrumTrack(v1Hihat))).toEqual(v1Hihat.map(() => 0));
+  });
+});
+
 describe('drum RLE round-trip', () => {
   it('round-trips sparse kick pattern', () => {
     const track = drumTrack([0, 16]);
