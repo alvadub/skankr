@@ -13,6 +13,10 @@ const USAGE = `Usage:
   dub lint [--strict] [files...]
   dub compress [--dry-run] [--min-occ N] [--min-len N] [--aggressive] <file> [output]
   dub export [-o dir] [--split] [-b] [files...]
+
+Notes:
+  --split writes one MIDI file per rendered lane for DAW import.
+  -b/--bundle is currently accepted as a reserved no-op compatibility flag.
 `;
 
 function die(message, code = 1) {
@@ -292,7 +296,7 @@ function cmdExport(options) {
   });
 
   if (options.bundle) {
-    process.stdout.write("note: -b is reserved for future multi-source bundling; use --split for per-lane MIDI export.\n");
+    process.stdout.write("note: -b/--bundle is currently a reserved no-op; use --split for per-lane MIDI export.\n");
   }
 }
 
