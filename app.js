@@ -1022,6 +1022,7 @@ import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
             cell.classList.toggle("sustain", normalized === "_");
             cell.classList.toggle("rest", normalized === "-");
             cell.classList.toggle("playing", step === activeStep);
+            cell.dataset.step = step;
           }
           step += 1;
           preview.append(cell);
@@ -1034,6 +1035,30 @@ import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
           renderDrumPatternPreview(preview, input?.value);
           if (input) preview.scrollLeft = input.scrollLeft;
         });
+      }
+
+      function bindPatternInput(input, preview, { render, parse, format, cycle, onToggle }) {
+        const syncScroll = () => { preview.scrollLeft = input.scrollLeft; };
+        const refresh = () => { render(preview, input.value); syncScroll(); };
+        input.addEventListener("focus", () => requestAnimationFrame(() => {
+          if (document.activeElement === input) input.setSelectionRange(input.selectionEnd, input.selectionEnd);
+        }));
+        input.addEventListener("scroll", syncScroll);
+        input.addEventListener("select", syncScroll);
+        preview.addEventListener("mousedown", (event) => event.preventDefault());
+        preview.addEventListener("click", (event) => {
+          const cell = event.target.closest("[data-step]");
+          if (!cell) { input.focus(); return; }
+          const stepIndex = Number(cell.dataset.step);
+          const parsed = parse(input.value);
+          if (!parsed || stepIndex < 0 || stepIndex >= parsed.length) return;
+          const next = [...parsed];
+          next[stepIndex] = cycle(parsed[stepIndex]);
+          input.value = format(next);
+          refresh();
+          onToggle(next);
+        });
+        return { refresh, syncScroll };
       }
 
       function dubSceneLabel(index) {
@@ -3072,17 +3097,21 @@ import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
           const poolPreview = layerEl.querySelector(".chord-pool-preview");
           const patternInput = layerEl.querySelector(".chord-pattern-input");
           const patternPreview = layerEl.querySelector(".chord-pattern-preview");
-          const syncPreviewScroll = () => {
-            poolPreview.scrollLeft = poolInput.scrollLeft;
-            patternPreview.scrollLeft = patternInput.scrollLeft;
-          };
+          const syncPreviewScroll = () => { poolPreview.scrollLeft = poolInput.scrollLeft; };
           const syncEditor = () => {
             updateChordEditorFromParts(el.chordGrid);
             setChordPoolText(scene, layerEl.dataset.chordLayer, partIndex, poolInput.value);
             renderChordPoolPreview(poolPreview, poolInput.value, patternInput.value, stepOffset);
-            renderChordPatternPreview(patternPreview, patternInput.value, stepOffset);
+            refreshChordPattern();
             syncPreviewScroll();
           };
+          const { refresh: refreshChordPattern } = bindPatternInput(patternInput, patternPreview, {
+            render: (preview, value) => renderChordPatternPreview(preview, value, stepOffset),
+            parse: (value) => parseChordPattern(value, CHORD_EDITOR_PART_STEPS),
+            format: chordPatternSymbolGroups,
+            cycle: (s) => s === "-" ? "x" : s === "x" ? "X" : "-",
+            onToggle: () => { syncEditor(); savePreset(); },
+          });
           poolInput.addEventListener("input", syncEditor);
           poolInput.addEventListener("scroll", syncPreviewScroll);
           poolInput.addEventListener("select", syncPreviewScroll);
@@ -3092,11 +3121,9 @@ import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
             syncEditor();
           });
           patternInput.addEventListener("input", syncEditor);
-          patternInput.addEventListener("scroll", syncPreviewScroll);
-          patternInput.addEventListener("select", syncPreviewScroll);
           updateChordEditorLayerValidity(layerEl);
           renderChordPoolPreview(poolPreview, poolInput.value, patternInput.value, stepOffset);
-          renderChordPatternPreview(patternPreview, patternInput.value, stepOffset);
+          refreshChordPattern();
         });
         return wrapper;
       }
@@ -3385,6 +3412,7 @@ import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
             cell.classList.add("rest");
             hasActiveChord = false;
           }
+          cell.dataset.step = step;
           cell.classList.toggle("playing", activeStep === step);
           preview.append(cell);
           step += 1;
@@ -3482,25 +3510,27 @@ import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
           const poolPreview = layerEl.querySelector(".chord-pool-preview");
           const patternInput = layerEl.querySelector(".chord-pattern-input");
           const patternPreview = layerEl.querySelector(".chord-pattern-preview");
-          const syncPreviewScroll = () => {
-            poolPreview.scrollLeft = poolInput.scrollLeft;
-            patternPreview.scrollLeft = patternInput.scrollLeft;
-          };
+          const syncPreviewScroll = () => { poolPreview.scrollLeft = poolInput.scrollLeft; };
           const syncEditor = () => {
             updateChordEditorFromParts(fields);
             renderChordPoolPreview(poolPreview, poolInput.value, patternInput.value, stepOffset);
-            renderChordPatternPreview(patternPreview, patternInput.value, stepOffset);
+            refreshChordPattern();
             syncPreviewScroll();
           };
+          const { refresh: refreshChordPattern } = bindPatternInput(patternInput, patternPreview, {
+            render: (preview, value) => renderChordPatternPreview(preview, value, stepOffset),
+            parse: (value) => parseChordPattern(value, CHORD_EDITOR_PART_STEPS),
+            format: chordPatternSymbolGroups,
+            cycle: (s) => s === "-" ? "x" : s === "x" ? "X" : "-",
+            onToggle: () => { syncEditor(); savePreset(); },
+          });
           poolInput.addEventListener("input", syncEditor);
           poolInput.addEventListener("scroll", syncPreviewScroll);
           poolInput.addEventListener("select", syncPreviewScroll);
           patternInput.addEventListener("input", syncEditor);
-          patternInput.addEventListener("scroll", syncPreviewScroll);
-          patternInput.addEventListener("select", syncPreviewScroll);
           updateChordEditorLayerValidity(layerEl);
           renderChordPoolPreview(poolPreview, poolInput.value, patternInput.value, stepOffset);
-          renderChordPatternPreview(patternPreview, patternInput.value, stepOffset);
+          refreshChordPattern();
         });
         editor.append(fields);
       }
@@ -3671,19 +3701,24 @@ import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
           const patternInput = editor.querySelector(".drum-pattern-input");
           const patternPreview = editor.querySelector(".drum-pattern-preview");
           const patternWrap = editor.querySelector(".drum-pattern-overlay-wrap");
-          const syncPatternPreviewScroll = () => {
-            patternPreview.scrollLeft = patternInput.scrollLeft;
-          };
-          const updatePatternPreview = () => {
-            renderDrumPatternPreview(patternPreview, patternInput.value);
-            syncPatternPreviewScroll();
-          };
           const updatePatternValidity = (parsed) => {
             patternInput.classList.toggle("invalid", !parsed);
             patternInput.toggleAttribute("aria-invalid", !parsed);
             patternWrap.classList.toggle("invalid", !parsed);
             patternInput.title = parsed ? "" : "Use X, x, _, and - in a 1, 2, 4, 8, 16, or 32 step drum pattern.";
           };
+          const { refresh: updatePatternPreview } = bindPatternInput(patternInput, patternPreview, {
+            render: renderDrumPatternPreview,
+            parse: parseDrumPattern,
+            format: formatDrumPattern,
+            cycle: (v) => v === 0 ? 0.72 : v < 1 ? 1 : 0,
+            onToggle: (parsed) => {
+              scene.drums[track.key] = parsed;
+              updatePatternValidity(parsed);
+              savePreset();
+              renderDrumGrid();
+            },
+          });
           patternInput.addEventListener("input", () => {
             const parsed = parseDrumPattern(patternInput.value);
             updatePatternValidity(parsed);
@@ -3692,8 +3727,6 @@ import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
             scene.drums[track.key] = parsed;
             savePreset();
           });
-          patternInput.addEventListener("scroll", syncPatternPreviewScroll);
-          patternInput.addEventListener("select", syncPatternPreviewScroll);
           patternInput.addEventListener("blur", () => {
             const parsed = parseDrumPattern(patternInput.value);
             if (!parsed) {

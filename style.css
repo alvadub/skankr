@@ -676,6 +676,7 @@
       .chord-cell {
         padding: 0.34rem;
         cursor: grab;
+        user-select: none;
       }
 
       .chord-cell.beat {
@@ -1398,12 +1399,31 @@
         padding: 0;
         pointer-events: none;
         position: absolute;
+        user-select: none;
         white-space: pre;
         z-index: 1;
       }
 
       .bass-text-preview span {
         border-radius: 0.25rem;
+      }
+
+      .drum-pattern-overlay-wrap .drum-pattern-preview,
+      .bass-text-overlay-wrap .chord-pattern-preview {
+        z-index: 3;
+      }
+
+      .drum-pattern-preview span[data-step],
+      .chord-pattern-preview span[data-step] {
+        pointer-events: auto;
+        cursor: pointer;
+        border-radius: 0.2rem;
+        user-select: none;
+      }
+
+      .drum-pattern-preview span[data-step]:hover,
+      .chord-pattern-preview span[data-step]:hover {
+        background: rgba(255, 255, 255, 0.1);
       }
 
       .bass-text-preview span.on {
