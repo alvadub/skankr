@@ -14,6 +14,10 @@ importers:
       midi-writer-js:
         specifier: ^3.2.1
         version: 3.2.1
+    devDependencies:
+      midi-file:
+        specifier: ^1.2.4
+        version: 1.2.4
 
 packages:
 
@@ -28,6 +32,9 @@ packages:
 
   harmonics@1.1.2:
     resolution: {integrity: sha512-K5d7WJ/KGwzKWyrvxP/bmnfMIkMgq/JeCZLRYSTOpB1UfaOz17O4PWHMnXeBNK0ScjllpZQw9D8UHIQxwD/6ig==}
+
+  midi-file@1.2.4:
+    resolution: {integrity: sha512-B5SnBC6i2bwJIXTY9MElIydJwAmnKx+r5eJ1jknTLetzLflEl0GWveuBB6ACrQpecSRkOB6fhTx1PwXk2BVxnA==}
 
   midi-writer-js@3.2.1:
     resolution: {integrity: sha512-mILW/zthDiinxd/fsVfCe0XWef0hHQzS+fukjS3W+gwBG3ljur241u7CsEC5T+9cOwIPVZCgw37pjKiKb7LJ1g==}
@@ -45,6 +52,8 @@ snapshots:
   '@tonaljs/pitch@5.0.2': {}
 
   harmonics@1.1.2: {}
+
+  midi-file@1.2.4: {}
 
   midi-writer-js@3.2.1:
     dependencies:
