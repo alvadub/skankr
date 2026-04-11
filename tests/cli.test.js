@@ -123,4 +123,27 @@ describe("dub cli", () => {
     expect(fs.existsSync(path.join(outDir, "song.mid"))).toBe(true);
     expect(text(result.stdout)).toContain("song.dub ->");
   });
+
+  it("exports split MIDI lanes for Bitwig-style import", () => {
+    const dir = makeTempDir();
+    const outDir = path.join(dir, "generated");
+    const file = path.join(dir, "song.dub");
+    fs.writeFileSync(file, `
+      # lead
+        @A
+          #33 x___x--- C2 D2
+      # drums
+        @A
+          #bd x---
+      > A
+    `);
+    const result = runCli(["export", "--split", "-o", outDir, file]);
+    expect(result.exitCode).toBe(0);
+
+    const splitDir = path.join(outDir, "song");
+    expect(fs.existsSync(path.join(splitDir, "01-lead-33.mid"))).toBe(true);
+    expect(fs.existsSync(path.join(splitDir, "02-drums-2001.mid"))).toBe(true);
+    expect(text(result.stdout)).toContain("01-lead-33.mid");
+    expect(text(result.stdout)).toContain("02-drums-2001.mid");
+  });
 });

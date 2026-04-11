@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { parseMidi } from "midi-file";
-import { build, merge } from "../lib/mixup.js";
+import { build, buildSplit, merge } from "../lib/mixup.js";
 import { parse } from "../lib/parser.js";
 
 function decodeMidi(buffer) {
@@ -76,5 +76,32 @@ describe("mixup build", () => {
       .flatMap((track) => collectEvents(track, "noteOn").map((event) => event.noteNumber))
       .sort((a, b) => a - b);
     expect(noteNumbers).toEqual([36, 38, 42, 42, 46]);
+  });
+
+  it("builds one MIDI file per rendered lane for split export", () => {
+    const midi = merge(parse(`
+      # lead
+        @A
+          #33 x--- C4
+      # drums
+        @A
+          #bd x---
+      > A
+    `));
+
+    const split = buildSplit(midi, 120);
+    expect(split).toHaveLength(2);
+
+    const lead = split.find((track) => track.name === "lead");
+    const drums = split.find((track) => track.name === "drums");
+    expect(lead).toBeTruthy();
+    expect(drums).toBeTruthy();
+
+    const parsedLead = decodeMidi(lead.data);
+    const parsedDrums = decodeMidi(drums.data);
+    expect(parsedLead.tracks).toHaveLength(1);
+    expect(parsedDrums.tracks).toHaveLength(1);
+    expect(collectEvents(parsedLead.tracks[0], "programChange")).toHaveLength(1);
+    expect(collectEvents(parsedDrums.tracks[0], "noteOn")[0].channel).toBe(9);
   });
 });

@@ -6,13 +6,13 @@ import process from "node:process";
 
 import { compressDub } from "../lib/compress.js";
 import { lintDub } from "../lib/lint.js";
-import { build, merge } from "../lib/mixup.js";
+import { build, buildSplit, merge } from "../lib/mixup.js";
 import { parse } from "../lib/parser.js";
 
 const USAGE = `Usage:
   dub lint [--strict] [files...]
   dub compress [--dry-run] [--min-occ N] [--min-len N] [--aggressive] <file> [output]
-  dub export [-o dir] [-b] [files...]
+  dub export [-o dir] [--split] [-b] [files...]
 `;
 
 function die(message, code = 1) {
@@ -73,6 +73,26 @@ function outputPathForExport(inputFile, outDir) {
   return path.join(outDir, `${parsed.name}.mid`);
 }
 
+function splitDirPathForExport(inputFile, outDir) {
+  const parsed = path.parse(inputFile);
+  return path.join(outDir, parsed.name);
+}
+
+function sanitizeName(value) {
+  return String(value || "track")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "track";
+}
+
+function splitTrackFilename(index, track) {
+  const lane = sanitizeName(track.name);
+  const suffix = Number.isFinite(track.program) ? `-${track.program}` : "";
+  return `${String(index + 1).padStart(2, "0")}-${lane}${suffix}.mid`;
+}
+
 function parseArgv(argv) {
   const args = argv.slice();
   const command = args.shift();
@@ -81,6 +101,7 @@ function parseArgv(argv) {
     dryRun: false,
     aggressive: false,
     bundle: false,
+    split: false,
     output: null,
     minOcc: 2,
     minLen: 2,
@@ -103,6 +124,10 @@ function parseArgv(argv) {
     }
     if (arg === "-b" || arg === "--bundle") {
       options.bundle = true;
+      continue;
+    }
+    if (arg === "--split") {
+      options.split = true;
       continue;
     }
     if (arg === "-o" || arg === "--output") {
@@ -181,6 +206,12 @@ function buildMidiForSource(source, bpmOverride = null) {
   return build(merged, bpmOverride ?? 120);
 }
 
+function buildSplitMidiForSource(source, bpmOverride = null) {
+  const ast = parse(source);
+  const merged = merge(ast);
+  return buildSplit(merged, bpmOverride ?? 120);
+}
+
 function cmdExport(options) {
   const files = options.files;
   if (!files.length) die(`export requires at least one input file\n\n${USAGE}`);
@@ -190,14 +221,28 @@ function cmdExport(options) {
 
   files.forEach((file) => {
     const target = readText(file);
+
+    if (options.split) {
+      const splitDir = splitDirPathForExport(target.filepath, outDir);
+      const tracks = buildSplitMidiForSource(target.source);
+      fs.mkdirSync(splitDir, { recursive: true });
+
+      tracks.forEach((track, index) => {
+        const outputFile = path.join(splitDir, splitTrackFilename(index, track));
+        fs.writeFileSync(outputFile, Buffer.from(track.data));
+        process.stdout.write(`${target.name} -> ${outputFile}\n`);
+      });
+      return;
+    }
+
     const data = buildMidiForSource(target.source);
     const outputFile = outputPathForExport(target.filepath, outDir);
     fs.writeFileSync(outputFile, Buffer.from(data));
     process.stdout.write(`${target.name} -> ${outputFile}\n`);
   });
 
-  if (options.bundle && files.length > 1) {
-    process.stdout.write("note: -b is accepted but currently export already writes one multi-track MIDI per source.\n");
+  if (options.bundle) {
+    process.stdout.write("note: -b is reserved for future multi-source bundling; use --split for per-lane MIDI export.\n");
   }
 }
 
