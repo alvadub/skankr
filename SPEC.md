@@ -96,12 +96,27 @@ A pattern is a string of hit/sustain/rest symbols:
 | `X` | hit (accent, higher velocity) |
 | `_` | sustain (extend previous note) |
 | `-` | rest |
-| `[ab]` | step shared between multiple notes |
+| `[xx]` | sub-step: two hits subdivided within one grid slot |
 | `\|` | bar separator (cosmetic, ignored) |
+
+**Sub-steps** (`[...]`) pack multiple hits into a single grid slot — a subdivision. Each character inside the brackets is a hit or rest at an evenly-spaced sub-position within that slot. Works on any lane including drums:
+
+```dub
+#bd  x - [xx] -    -- kick + 32nd pair on beat 3
+#hh  [xx][xx][xx][xx]  -- continuous 32nd notes
+#sd  - - [xX] -    -- snare with accented ghost hit
+```
 
 Euclidean patterns inline: `bd(3,8)` = 3 onsets over 8 steps, optional rotation: `bd(3,8,2)`.
 
-Pattern reference: `&groove` expands the named pattern variable in-place.
+**Pattern references** (`&name`) expand a named pattern variable in-place. Work on any lane including drums:
+
+```dub
+&groove x-x- x-x- x-x- x-x-
+#bd &groove
+#sd - - x - | - - x -
+#hh [xx]- [xx]- [xx]- [xx]-
+```
 
 ### 2.6 Chord and note syntax
 
