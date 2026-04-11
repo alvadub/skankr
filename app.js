@@ -11,6 +11,21 @@ import {
   parseBassNotes, parseBassPattern, formatBassPattern, formatBassPatternSymbols,
   sortAndTrimBassEvents, bassPatternStats, bassPatternToEvents,
 } from "./skt.js";
+import { parse as parseDub } from "./lib/parser.js";
+import { merge as mergeDub } from "./lib/mixup.js";
+import { lintDub } from "./lib/lint.js";
+import {
+  buildArrangementDisplayExpansion,
+  buildMixFromMerged,
+  buildSectionTimeline,
+  buildTrackLineMap,
+  collectVariableDefinitions,
+  extractDraftBankSelection,
+  extractDraftBars,
+  extractDraftKey,
+  extractDraftTempo,
+  getMaxPatternSlots,
+} from "./lib/playground.js";
 
       const LOOP_STEPS = STEPS;
       const INITIAL_SCENE_COUNT = 4;
@@ -213,6 +228,9 @@ import {
       let suppressNextStepClick = false;
       let webAudioFontPlayer = null;
       let lastBassMidi = null;
+      let foundationProbeSnapshot = null;
+      let foundationProbeAudioContext = null;
+      let foundationProbeStopTimer = null;
       const webAudioFontPresets = new Map();
       const webAudioFontLoading = new Map();
       const activeBassNotes = new Map();
@@ -298,6 +316,11 @@ import {
         writeCopy: document.getElementById("write-copy"),
         writeDownload: document.getElementById("write-download"),
         writeImport: document.getElementById("write-import"),
+        probePlay: document.getElementById("probe-play"),
+        probeSummary: document.getElementById("probe-summary"),
+        probeLint: document.getElementById("probe-lint"),
+        probeArrangement: document.getElementById("probe-arrangement"),
+        probeTracks: document.getElementById("probe-tracks"),
       };
 
       function createScene(index) {
@@ -4263,6 +4286,153 @@ import {
         return `${state.bpm} BPM · ${slot}${sceneLabel} · stopped`;
       }
 
+      function setProbeSummary(items) {
+        el.probeSummary.innerHTML = items.map((item) => {
+          const tone = item.tone ? ` ${item.tone}` : "";
+          return `<span class="probe-pill${tone}"><strong>${item.label}</strong> ${item.value}</span>`;
+        }).join("");
+      }
+
+      function formatProbeIssues(report) {
+        const errorLines = (report.errors || []).map((entry) => `ERR ${entry.rule}${entry.line ? ` @${entry.line}` : ""}: ${entry.message}`);
+        const warningLines = (report.warnings || []).map((entry) => `WARN ${entry.rule}${entry.line ? ` @${entry.line}` : ""}: ${entry.message}`);
+        const lines = [...errorLines, ...warningLines];
+        return lines.length ? lines.join("\n") : "No lint findings.";
+      }
+
+      function renderFoundationProbe() {
+        const source = el.writeDub.value || exportDubText();
+
+        try {
+          const context = parseDub(source);
+          const merged = mergeDub(context);
+          const report = lintDub(source, { context, merged });
+          const expanded = buildArrangementDisplayExpansion(source);
+          const timeline = buildSectionTimeline(context, merged, source);
+          const mix = buildMixFromMerged(merged);
+          const lineMap = buildTrackLineMap(source);
+          const variables = collectVariableDefinitions(source);
+          const tempo = extractDraftTempo(source) || state.bpm;
+          const bars = extractDraftBars(source);
+          const key = extractDraftKey(source);
+          const bank = extractDraftBankSelection(source);
+
+          foundationProbeSnapshot = { source, context, merged, report, expanded, timeline, mix, tempo };
+          const totalTimelineBeats = timeline.length ? timeline[timeline.length - 1].end + 1 : 0;
+
+          setProbeSummary([
+            { label: "tempo", value: tempo },
+            { label: "bars", value: bars === null ? "n/a" : bars },
+            { label: "key", value: key === null ? "n/a" : key },
+            { label: "vars", value: variables.length },
+            { label: "sections", value: expanded.length },
+            { label: "beats", value: totalTimelineBeats },
+            { label: "tracks", value: mix.length },
+            { label: "slots", value: getMaxPatternSlots(context) },
+            { label: "warn", value: report.warnings.length, tone: report.warnings.length ? "warn" : "" },
+            { label: "err", value: report.errors.length, tone: report.errors.length ? "error" : "" },
+            { label: "bank", value: bank.bank || bank.instruments || bank.drums || "n/a" },
+          ]);
+
+          el.probeLint.textContent = formatProbeIssues(report);
+          el.probeArrangement.textContent = [
+            `expanded: ${expanded.map((item) => item.name).join(" ") || "none"}`,
+            "",
+            "timeline:",
+            ...(timeline.length ? timeline.map((item) => (
+              `${item.name || "?"} ${item.start}-${item.end}${item.blockId ? ` ${item.blockId}${item.blockLive ? " live" : ""}` : ""}`
+            )) : ["none"]),
+          ].join("\n");
+          el.probeTracks.textContent = [
+            `variables: ${variables.length ? variables.map((item) => `${item.name}@${item.line}`).join(", ") : "none"}`,
+            `mix: ${mix.length ? mix.map((item) => `${item[0]}/${item[1]}:${item[2].length}`).join(", ") : "none"}`,
+            "",
+            "line map:",
+            ...(lineMap.size ? [...lineMap.entries()].map(([name, lines]) => `${name}: ${lines.join(",")}`) : ["none"]),
+          ].join("\n");
+          if (el.probePlay) el.probePlay.disabled = false;
+        } catch (error) {
+          foundationProbeSnapshot = null;
+          setProbeSummary([
+            { label: "probe", value: "parse failed", tone: "error" },
+          ]);
+          const message = error && error.message ? error.message : String(error);
+          el.probeLint.textContent = message;
+          el.probeArrangement.textContent = "Probe unavailable until the exported DUB parses cleanly.";
+          el.probeTracks.textContent = "Fix export shape or parser assumptions before using the foundation probe.";
+          if (el.probePlay) el.probePlay.disabled = true;
+        }
+      }
+
+      async function stopFoundationProbe() {
+        if (foundationProbeStopTimer) {
+          window.clearTimeout(foundationProbeStopTimer);
+          foundationProbeStopTimer = null;
+        }
+        if (foundationProbeAudioContext) {
+          const ctx = foundationProbeAudioContext;
+          foundationProbeAudioContext = null;
+          await ctx.close();
+        }
+        if (el.probePlay) el.probePlay.textContent = "Probe Click";
+      }
+
+      async function playFoundationProbe() {
+        if (!foundationProbeSnapshot) return;
+        if (foundationProbeAudioContext) {
+          await stopFoundationProbe();
+          return;
+        }
+
+        const ctx = new AudioContext();
+        foundationProbeAudioContext = ctx;
+        await ctx.resume();
+        if (el.probePlay) el.probePlay.textContent = "Stop Probe";
+
+        const sections = [];
+        foundationProbeSnapshot.merged.forEach((group) => {
+          (group || []).forEach((parts) => sections.push(parts));
+        });
+
+        const slotSeconds = 60 / Math.max(1, foundationProbeSnapshot.tempo) / 4;
+        const startAt = ctx.currentTime + 0.05;
+        let cursor = 0;
+
+        sections.forEach((parts) => {
+          const length = (parts || []).reduce((max, track) => Math.max(max, Array.isArray(track[2]) ? track[2].length : 0), 0);
+          for (let i = 0; i < length; i += 1) {
+            const sectionStart = i === 0;
+            let active = false;
+            (parts || []).forEach((track) => {
+              const tick = Array.isArray(track[2]) ? track[2][i] : null;
+              if (tick && typeof tick === "object" && tick.v > 0) active = true;
+            });
+            if (!active && !sectionStart) {
+              cursor += 1;
+              continue;
+            }
+
+            const at = startAt + cursor * slotSeconds;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = sectionStart ? "triangle" : "sine";
+            osc.frequency.value = sectionStart ? 880 : 440;
+            gain.gain.setValueAtTime(0.0001, at);
+            gain.gain.exponentialRampToValueAtTime(sectionStart ? 0.16 : 0.07, at + 0.005);
+            gain.gain.exponentialRampToValueAtTime(0.0001, at + Math.min(0.08, slotSeconds * 0.8));
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(at);
+            osc.stop(at + Math.min(0.1, slotSeconds));
+            cursor += 1;
+          }
+        });
+
+        const durationMs = Math.max(400, cursor * slotSeconds * 1000 + 180);
+        foundationProbeStopTimer = window.setTimeout(() => {
+          stopFoundationProbe();
+        }, durationMs);
+      }
+
       function renderShell() {
         document.body.classList.remove("mode-listen", "mode-edit", "mode-write", "editing");
         document.body.classList.add(`mode-${state.uiMode}`);
@@ -4285,6 +4455,7 @@ import {
         el.songNoteInput.style.height = "auto";
         el.songNoteInput.style.height = el.songNoteInput.scrollHeight + "px";
         el.writeDub.value = exportDubText();
+        renderFoundationProbe();
         el.mixerOpen.classList.toggle("active", el.mixerDialog.hasAttribute("open"));
         renderProjectState();
       }
@@ -4536,6 +4707,11 @@ el.shareLink.addEventListener("click", () => {
       el.writeDownload.addEventListener("click", () => {
         downloadTextFile("SKNKR.dub", exportDubText(), "text/plain");
       });
+      if (el.probePlay) {
+        el.probePlay.addEventListener("click", () => {
+          playFoundationProbe();
+        });
+      }
       el.writeImport.addEventListener("click", () => {
         runBlockingAction(() => el.dubImportFile.click());
       });

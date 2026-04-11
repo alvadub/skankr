@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SKNKR</title>
     <link rel="stylesheet" href="style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "harmonics": "./node_modules/harmonics/dist/index.mjs",
+          "midi-writer-js": "./node_modules/midi-writer-js/build/index.browser.js"
+        }
+      }
+    </script>
   </head>
   <body class="mode-edit editing">
     <main class="app">
@@ -103,6 +111,32 @@
               </div>
             </div>
             <textarea id="write-dub" class="write-dub" readonly spellcheck="false" aria-label="Generated DUB"></textarea>
+            <section class="foundation-probe" aria-label="Foundation probe">
+              <div class="grid-head foundation-probe-head">
+                <div>
+                  <h2>Foundation Probe</h2>
+                  <p>Exercise the shared DUB core against the exported source: parser, lint, arrangement, timeline, and a thin click-track probe.</p>
+                </div>
+                <div class="write-actions">
+                  <button id="probe-play" type="button">Probe Click</button>
+                </div>
+              </div>
+              <div id="probe-summary" class="probe-summary"></div>
+              <div class="probe-columns">
+                <section class="probe-card">
+                  <h3>Lint</h3>
+                  <pre id="probe-lint" class="probe-pre" aria-live="polite"></pre>
+                </section>
+                <section class="probe-card">
+                  <h3>Arrangement</h3>
+                  <pre id="probe-arrangement" class="probe-pre" aria-live="polite"></pre>
+                </section>
+                <section class="probe-card">
+                  <h3>Tracks</h3>
+                  <pre id="probe-tracks" class="probe-pre" aria-live="polite"></pre>
+                </section>
+              </div>
+            </section>
           </section>
 
           <section class="panel">
