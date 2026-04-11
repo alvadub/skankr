@@ -5,6 +5,7 @@
     "dub": "./bin/dub.js"
   },
   "scripts": {
+    "build": "bun build.js",
     "test": "bun test"
   },
   "dependencies": {
