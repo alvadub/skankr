@@ -118,6 +118,9 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           release: 0.22,
           recording: false,
           layers: [{ shape: "sine", detune: 0, gain: 1 }],
+          harmonics: 0,
+          harmonicShape: "square",
+          harmonicFilter: 300,
         },
         volumes: { master: 0.8, rhythm: 0.55, harmony: 0.35, drums: 0.75 },
         chordCatalog: { ...DEFAULT_CHORD_CATALOG },
@@ -1372,6 +1375,9 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
             detune: clampNumber(rawLayer.detune, -1200, 1200, 0),
             gain: clampNumber(rawLayer.gain, 0, 1, 1),
           }],
+          harmonics: clampNumber(source.harmonics ?? preset.harmonics ?? 0, 0, 1, 0),
+          harmonicShape: BASS_SHAPES.includes(source.harmonicShape) ? source.harmonicShape : (preset.harmonicShape || "square"),
+          harmonicFilter: clampNumber(source.harmonicFilter ?? preset.harmonicFilter ?? 300, 100, 1000, 300),
         };
       }
 
@@ -1382,6 +1388,9 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         state.bass.glide = preset.glide;
         state.bass.release = preset.release;
         state.bass.layers = [{ ...state.bass.layers[0], shape: preset.shape }];
+        state.bass.harmonics = preset.harmonics ?? 0;
+        state.bass.harmonicShape = preset.harmonicShape ?? "square";
+        state.bass.harmonicFilter = preset.harmonicFilter ?? 300;
         savePreset();
         renderBassControls();
       }
