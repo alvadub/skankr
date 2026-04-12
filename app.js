@@ -38,7 +38,7 @@ import { getInternalSynthParams, playInternalChord, playDrumInternal } from "./l
 import { createAudioGraph } from "./lib/audio-graph.js";
 import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
 import { AudioRuntime } from "./lib/audio-runtime.js";
-import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, formatDrumPattern, renderDrumPatternPreview, renderChordPatternPreview, renderChordPoolPreview, chordLayerPartValues, formatChordPatternPart, formatChordPoolPart, chordActivePoolIndex, parseChordPool, chordPatternToSlots, normalizeDubPatternSymbol, dubPatternChars, parseDubPatternCells, reconcilePastePattern, parseBassInlinePattern, parseChordInlinePattern, isDubPatternToken, normalizeChordPoolText, parseDubBassSymbols, dubSceneLabel, dubLineComment, dubMetaValue, dubMetaMap, formatDubChordLayer, formatDubBassPattern, orderedUnique, dubDrumTrackKey, soundLabel, drumSoundLabel, bassPresetLabel } from "./lib/ui-widgets.js";
+import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, formatDrumPattern, renderDrumPatternPreview, renderChordPatternPreview, renderChordPoolPreview, chordLayerPartValues, formatChordPatternPart, formatChordPoolPart, chordActivePoolIndex, parseChordPool, chordPatternToSlots, normalizeDubPatternSymbol, dubPatternChars, parseDubPatternCells, reconcilePastePattern, parseBassInlinePattern, parseChordInlinePattern, isDubPatternToken, normalizeChordPoolText, parseDubBassSymbols, dubSceneLabel, dubLineComment, dubMetaValue, dubMetaMap, formatDubChordLayer, formatDubBassPattern, orderedUnique, dubDrumTrackKey, soundLabel, drumSoundLabel, bassPresetLabel, summarizeChordLayer, summarizeDrumTrack, summarizeBassEvents } from "./lib/ui-widgets.js";
 
       const LOOP_STEPS = STEPS;
       const INITIAL_SCENE_COUNT = 4;
@@ -902,59 +902,6 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           renderDrumPatternPreview(preview, input?.value, state.playhead >= 0 ? state.playhead % DRUM_STEPS : -1, DRUM_STEPS);
           if (input) preview.scrollLeft = input.scrollLeft;
         });
-      }
-
-      function summarizeChordLayer(layerValues) {
-        const starts = [];
-        let currentChord = "";
-        fixedLengthArray(layerValues, "", CHORD_STEPS).forEach((rawValue, step) => {
-          const value = String(rawValue || "").trim();
-          if (!value) {
-            currentChord = "";
-            return;
-          }
-          if (value === currentChord) return;
-          starts.push({ step: step + 1, chord: value });
-          currentChord = value;
-        });
-        const distinct = orderedUnique(starts.map((entry) => entry.chord));
-        return {
-          first: starts[0]?.chord || "",
-          entries: starts.length,
-          changes: Math.max(0, starts.length - 1),
-          distinct,
-          anchors: starts.map((entry) => `${entry.step}:${entry.chord}`),
-          density: starts.length / CHORD_STEPS,
-        };
-      }
-
-      function summarizeDrumTrack(values) {
-        const normalized = drumLengthArray(values).map(normalizeDrumValue);
-        const hits = normalized.filter((value) => value > 0).length;
-        const accents = normalized.filter((value) => value >= 0.95).length;
-        const sustains = normalized.filter((value) => value > 0 && value < 0.95).length;
-        return {
-          hits,
-          accents,
-          sustains,
-          rests: DRUM_STEPS - hits,
-          density: hits / DRUM_STEPS,
-        };
-      }
-
-      function summarizeBassEvents(events) {
-        const normalized = normalizeBassEvents(events);
-        const activeTicks = normalized.reduce((sum, event) => sum + Math.max(1, event.length), 0);
-        const sustainTicks = normalized.reduce((sum, event) => sum + Math.max(0, event.length - 1), 0);
-        const distinct = orderedUnique(normalized.map((event) => bassNoteLabel(event)));
-        return {
-          notes: normalized.length,
-          sustainTicks,
-          activeTicks,
-          density: activeTicks / BASS_TICKS,
-          first: normalized[0] ? bassNoteLabel(normalized[0]) : "",
-          distinct,
-        };
       }
 
       function inferSceneRole(name, index, totalScenes) {
