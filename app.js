@@ -38,7 +38,7 @@ import { getInternalSynthParams, playInternalChord, playDrumInternal } from "./l
 import { createAudioGraph } from "./lib/audio-graph.js";
 import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
 import { AudioRuntime } from "./lib/audio-runtime.js";
-import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, formatDrumPattern, renderDrumPatternPreview, renderChordPatternPreview, renderChordPoolPreview, chordLayerPartValues, formatChordPatternPart, formatChordPoolPart, chordActivePoolIndex, parseChordPool, chordPatternToSlots, normalizeDubPatternSymbol, dubPatternChars, parseDubPatternCells, reconcilePastePattern, parseBassInlinePattern, parseChordInlinePattern, isDubPatternToken, normalizeChordPoolText, parseDubBassSymbols, dubSceneLabel, dubLineComment, dubMetaValue, dubMetaMap, formatDubChordLayer, formatDubBassPattern, orderedUnique, dubDrumTrackKey, soundLabel, drumSoundLabel, bassPresetLabel, summarizeChordLayer, summarizeDrumTrack, summarizeBassEvents, summarizeScene as summarizeSceneFn, parseDubChannelLine, parseDubArrangement, chordDubLineToSlots, drumDubLineToValues, bassDubLineToEvents, detectPasteFormat, chordPoolTextState, bassTextState, createBlankScene, normalizeChordCatalog, chordCatalogSignature, encodeChordCatalogPayload, decodeChordCatalogPayload, normalizeUiMode, escapeAttr, normalizeDrumSounds } from "./lib/ui-widgets.js";
+import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, formatDrumPattern, renderDrumPatternPreview, renderChordPatternPreview as renderChordPatternPreviewFn, renderChordPoolPreview as renderChordPoolPreviewFn, chordLayerPartValues, formatChordPatternPart, formatChordPoolPart, chordActivePoolIndex, parseChordPool, chordPatternToSlots, normalizeDubPatternSymbol, dubPatternChars, parseDubPatternCells, reconcilePastePattern, parseBassInlinePattern, parseChordInlinePattern, isDubPatternToken, normalizeChordPoolText, parseDubBassSymbols, dubSceneLabel, dubLineComment, dubMetaValue, dubMetaMap, formatDubChordLayer, formatDubBassPattern, orderedUnique, dubDrumTrackKey, soundLabel, drumSoundLabel, bassPresetLabel, summarizeChordLayer, summarizeDrumTrack, summarizeBassEvents, summarizeScene as summarizeSceneFn, parseDubChannelLine, parseDubArrangement, chordDubLineToSlots, drumDubLineToValues, bassDubLineToEvents, detectPasteFormat, chordPoolTextState, bassTextState, createBlankScene, normalizeChordCatalog, chordCatalogSignature, encodeChordCatalogPayload, decodeChordCatalogPayload, normalizeUiMode, escapeAttr, normalizeDrumSounds, uiIcon } from "./lib/ui-widgets.js";
 
       const LOOP_STEPS = STEPS;
       const INITIAL_SCENE_COUNT = 4;
@@ -229,7 +229,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
       };
 
       function createScene(index) {
-        const scene = createBlankScene(index);
+        const scene = createBlankScene(index, TRACKS);
 
         if (index === 0) {
           scene.rhythm[4] = "C7";
@@ -260,33 +260,6 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         }
         scene.chordPoolText[layer][partIndex] = value;
       }
-
-      function normalizeUiMode(rawMode) {
-        return ["listen", "edit"].includes(rawMode) ? rawMode : "edit";
-      }
-
-      function escapeAttr(value) {
-        return String(value)
-          .replace(/&/g, "&amp;")
-          .replace(/"/g, "&quot;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
-      }
-
-      function uiIcon(name) {
-        const icons = {
-          power: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5v5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.6"/><path d="M4.4 3.8A5.5 5.5 0 1 0 11.6 3.8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.6"/></svg>',
-          record: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.2" fill="currentColor"/></svg>',
-          settings: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6.6 1.8h2.8l.4 1.6 1.3.5 1.4-.8 2 2-0.8 1.4.5 1.3 1.6.4v2.8l-1.6.4-.5 1.3.8 1.4-2 2-1.4-.8-1.3.5-.4 1.6H6.6l-.4-1.6-1.3-.5-1.4.8-2-2 .8-1.4-.5-1.3-1.6-.4V8.6l1.6-.4.5-1.3-.8-1.4 2-2 1.4.8 1.3-.5.4-1.6Z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="1.1"/><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>',
-          clear: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 4.5 12.5 13.5M12.5 4.5 3.5 13.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.7"/></svg>',
-          undo: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6 2 8l2 2" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4"/><path d="M2 8h9a3 3 0 0 1 0 6H7" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4"/></svg>',
-          mute: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>',
-          notes: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.75 2.5v7.2a2 2 0 1 1-1.5-1.94V4.1l4-1.1v5.6a2 2 0 1 1-1.5-1.94V2.5l-1 .28Z" fill="currentColor"/></svg>',
-          pattern: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.25 11.75V9.5m3-5.25v7.5m3-4.5v4.5m3-8.5v8.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/><path d="M1.5 13.25h13" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.2" opacity=".65"/></svg>',
-        };
-        return icons[name] || "";
-      }
-
 
       function ensureAudio() {
         if (audioRuntime) return audioRuntime;
@@ -368,20 +341,6 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           presetName: `_drum_${midi}_${kit.suffix}`,
           midi,
         };
-      }
-
-      function normalizeDrumSounds(rawDrums, fallback = state.sounds.drums) {
-        if (typeof rawDrums === "string") {
-          const kit = Object.prototype.hasOwnProperty.call(DRUM_KIT_CATALOG, rawDrums) ? rawDrums : "internal";
-          return Object.fromEntries(TRACKS.map((track) => [track.key, kit]));
-        }
-        const source = rawDrums && typeof rawDrums === "object" ? rawDrums : {};
-        return Object.fromEntries(TRACKS.map((track) => [
-          track.key,
-          Object.prototype.hasOwnProperty.call(DRUM_KIT_CATALOG, source[track.key])
-            ? source[track.key]
-            : fallback[track.key],
-        ]));
       }
 
       async function ensureWebAudioFontPreset(sound) {
@@ -1557,7 +1516,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
             snapshot.sounds = {
               rhythm: header.sounds.rhythm,
               harmony: header.sounds.harmony,
-              drums: normalizeDrumSounds(header.sounds.drums, snapshot.sounds.drums),
+              drums: normalizeDrumSounds(header.sounds.drums, snapshot.sounds.drums, TRACKS, DRUM_KIT_CATALOG),
             };
           }
           if (header.volumes) snapshot.volumes = { ...snapshot.volumes, ...header.volumes };
@@ -1614,7 +1573,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           harmony: Object.prototype.hasOwnProperty.call(SOUND_CATALOG, preset.sounds?.harmony)
             ? preset.sounds.harmony
             : state.sounds.harmony,
-          drums: normalizeDrumSounds(preset.sounds?.drums),
+          drums: normalizeDrumSounds(preset.sounds?.drums, state.sounds.drums, TRACKS, DRUM_KIT_CATALOG),
         };
         state.bass = normalizeBassSettings(preset.bass);
         state.volumes = {
@@ -2778,12 +2737,12 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
 
       function renderChordPoolPreview(preview, rawChords, rawPattern, stepOffset = 0, maxSteps = CHORD_EDITOR_PART_STEPS) {
         const activeStep = state.playhead >= 0 ? state.playhead - stepOffset : -1;
-        renderChordPoolPreview(preview, rawChords, rawPattern, activeStep, maxSteps);
+        renderChordPoolPreviewFn(preview, rawChords, rawPattern, activeStep, maxSteps);
       }
 
       function renderChordPatternPreview(preview, rawPattern, stepOffset = 0, maxSteps = CHORD_EDITOR_PART_STEPS) {
         const activeStep = state.playhead >= 0 ? state.playhead - stepOffset : -1;
-        renderChordPatternPreview(preview, rawPattern, activeStep, maxSteps);
+        renderChordPatternPreviewFn(preview, rawPattern, activeStep, maxSteps);
       }
 
       function updateChordEditorLayerValidity(layerEl) {
