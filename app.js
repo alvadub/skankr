@@ -242,6 +242,10 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           [8, 24].forEach((step) => scene.drums.snare[step] = 1);
           for (let step = 2; step < DRUM_STEPS; step += 4) scene.drums.hihat[step] = 1;
           [15, 31].forEach((step) => scene.drums.openhat[step] = 1);
+          const defaultBassPattern = "---- ---- ---- ---- ---- ---- ---- ---- ---x ---- ---x ---- ---x ---x ---- ---- ---x ---- ---x ---- ---x ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ";
+          const defaultBassNotes = "c2 c2 c2 e2 f2 f2 f2";
+          const bassEvents = bassPatternToEvents(defaultBassNotes, defaultBassPattern, 0, BASS_TICKS);
+          if (bassEvents) scene.bass = bassEvents;
         }
 
         scene.chordPoolText = {
@@ -252,6 +256,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           rhythm: chordPoolTextState(scene.rhythm, null, CHORD_EDITOR_PARTS, formatChordPatternPart, CHORD_EDITOR_PART_STEPS),
           harmony: chordPoolTextState(scene.harmony, null, CHORD_EDITOR_PARTS, formatChordPatternPart, CHORD_EDITOR_PART_STEPS),
         };
+        scene.bassText = bassTextState(scene.bass, null, formatBassNotes, formatBassPattern);
 
         return scene;
       }
@@ -388,12 +393,12 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         const player = getWebAudioFontPlayer();
         const preset = sound?.presetName ? window[sound.presetName] : null;
         if (player && preset) {
-          player.queueChord(audioContext, rhythmGain, preset, time, parsed.midi, state.strumLength, 0.8);
+          player.queueChord(audioContext, audioRuntime.graph.rhythmGain, preset, time, parsed.midi, state.strumLength, 0.8);
           return;
         }
 
         const output = audioContext.createGain();
-        output.connect(rhythmGain);
+        output.connect(audioRuntime.graph.rhythmGain);
         playInternalChord(audioContext, parsed.frequencies, output, time, state.strumLength, 0.15, getInternalSynthParams(state.sounds.rhythm));
       }
 
@@ -442,7 +447,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         if (player && preset) {
           harmonyVoice = {
             label: parsed.label,
-            envelopes: player.queueChord(audioContext, harmonyGain, preset, time, parsed.midi, 8, 0.38),
+            envelopes: player.queueChord(audioContext, audioRuntime.graph.harmonyGain, preset, time, parsed.midi, 8, 0.38),
           };
           return;
         }
@@ -457,7 +462,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         gain.gain.setValueAtTime(0.0001, time);
         gain.gain.exponentialRampToValueAtTime(gainValue, time + state.padAttack);
         gain.connect(filter);
-        filter.connect(harmonyGain);
+        filter.connect(audioRuntime.graph.harmonyGain);
 
         const oscillators = [];
         const shapes = synthParams.mix ? ["sine", synthParams.shape || "sawtooth"] : [synthParams.shape || "sine", "sine"];
@@ -503,7 +508,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           envelope.gain.cancelScheduledValues(time);
           envelope.gain.setTargetAtTime(0.0001, time, state.bass.release);
         });
-        voice.oscillators.forEach((osc) => osc.stop(time + state.bass.release + 0.1));
+        voice.oscillators.forEach((osc) => osc.stop(time + state.bass.release * 4 + 0.1));
       }
 
       function releaseAllBassNotes() {
@@ -516,8 +521,8 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         const filter = audioContext.createBiquadFilter();
         filter.type = "lowpass";
         filter.frequency.setValueAtTime(state.bass.filter, time);
-        filter.Q.setValueAtTime(5, time);
-        destination.connect(filter).connect(bassGain);
+        filter.Q.setValueAtTime(1, time);
+        destination.connect(filter).connect(audioRuntime.graph.bassGain);
 
         const voices = state.bass.layers.map((layer) => {
           const osc = audioContext.createOscillator();
@@ -537,7 +542,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           osc.start(time);
           if (releaseAt !== null) {
             envelope.gain.setTargetAtTime(0.0001, releaseAt, state.bass.release);
-            osc.stop(releaseAt + state.bass.release + 0.1);
+            osc.stop(releaseAt + state.bass.release * 4 + 0.1);
           }
           return { osc, envelope };
         });
@@ -568,7 +573,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         scene.bass = scene.bass.filter((event) => event.tick !== tick);
         scene.bass.push({ tick, code, midi, length: BASS_TICKS_PER_STEP, velocity: 1 });
         sortAndTrimBassEvents(scene.bass);
-        scene.bassText = bassTextState(scene.bass);
+        scene.bassText = bassTextState(scene.bass, null, formatBassNotes, formatBassPattern);
         savePreset();
         renderDrumGrid();
         el.status.textContent = `Recorded bass ${bassNoteLabel({ midi })} on bass step ${(state.playhead % STEPS) + 1}.${(tick % BASS_TICKS_PER_STEP) + 1}`;
@@ -1214,7 +1219,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
             harmony: chordPoolTextState(harmony, source.chordPatternText?.harmony, CHORD_EDITOR_PARTS, formatChordPatternPart, CHORD_EDITOR_PART_STEPS),
           },
           bass,
-          bassText: bassTextState(bass, source.bassText),
+          bassText: bassTextState(bass, source.bassText, formatBassNotes, formatBassPattern),
           drums: Object.fromEntries(TRACKS.map((track) => [
             track.key,
             drumLengthArray(source.drums?.[track.key]).map(normalizeDrumValue),
@@ -1643,7 +1648,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           return;
         }
         scene.bass = bassUndoBuffer;
-        scene.bassText = bassTextState(scene.bass);
+        scene.bassText = bassTextState(scene.bass, null, formatBassNotes, formatBassPattern);
         bassUndoBuffer = null;
         savePreset();
         renderDrumGrid();
@@ -2975,7 +2980,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
             <button type="button" class="icon-button compact-button ${scene.mutes?.bass ? "active" : ""}" data-mute-bass aria-label="Mute bass" title="Mute bass">${uiIcon("mute")}</button>
           </div>
         `;
-        const bassText = scene.bassText || bassTextState(scene.bass);
+        const bassText = scene.bassText || bassTextState(scene.bass, null, formatBassNotes, formatBassPattern);
         const bassEditor = document.createElement("div");
         bassEditor.className = "bass-inline-editor";
         bassEditor.innerHTML = `
@@ -3015,7 +3020,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           if (!confirmBlocking(`Clear bassline for ${scene.name}?`)) return;
           bassUndoBuffer = [...scene.bass];
           scene.bass = [];
-          scene.bassText = bassTextState(scene.bass);
+          scene.bassText = bassTextState(scene.bass, null, formatBassNotes, formatBassPattern);
           savePreset();
           renderDrumGrid();
         });
@@ -3030,11 +3035,20 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           patternPreview.scrollLeft = patternInput.scrollLeft;
         };
         const syncBassInlineEditor = () => {
-          updateBassEditorFromParts(bassEditor);
+          const maxTicks = Number(notesInput.dataset.maxTicks) || BASS_TICKS;
+          const notes = parseBassNotes(notesInput.value);
+          const pattern = parseBassPattern(patternInput.value, maxTicks);
           scene.bassText = {
             notes: notesInput.value,
             pattern: patternInput.value,
           };
+          if (notes && pattern && notes.length === bassPatternStats(pattern).pulses) {
+            const events = bassPatternToEvents(notesInput.value, patternInput.value, 0, maxTicks);
+            if (events) {
+              currentScene().bass = events;
+              savePreset();
+            }
+          }
           renderBassNotesPreview(notesPreview, notesInput.value, patternInput.value, 0, BASS_TICKS);
           renderBassEditorPreview(patternPreview, patternInput.value, 0, BASS_TICKS);
           syncBassPreviewScroll();
