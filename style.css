@@ -1323,6 +1323,7 @@
         color: var(--muted);
         font-family: "SFMono-Regular", Consolas, monospace;
         font-size: 0.76rem;
+        text-align: right;
       }
 
       .bass-editor-fields label {
