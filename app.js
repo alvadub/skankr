@@ -38,7 +38,7 @@ import { getInternalSynthParams, playInternalChord, playDrumInternal } from "./l
 import { createAudioGraph } from "./lib/audio-graph.js";
 import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
 import { AudioRuntime } from "./lib/audio-runtime.js";
-import { bindPatternInput } from "./lib/ui-widgets.js";
+import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, formatDrumPattern } from "./lib/ui-widgets.js";
 
       const LOOP_STEPS = STEPS;
       const INITIAL_SCENE_COUNT = 4;
@@ -911,34 +911,6 @@ import { bindPatternInput } from "./lib/ui-widgets.js";
         return chords.some((chord) => !chord) ? null : chords.map((chord) => chord.label);
       }
 
-      function parseChordPattern(rawPattern, maxSteps = CHORD_STEPS) {
-        const raw = String(rawPattern || "").trim();
-        if (!raw) return [];
-        if (/[^xX_\-\s|.0]/.test(raw)) return null;
-        const symbols = [...raw.replace(/[\s|]/g, "").replace(/[.0]/g, "-")];
-        if (!symbols.length || symbols.length > maxSteps) return null;
-        return symbols;
-      }
-
-      function chordPatternStats(pattern) {
-        const stats = { pulses: 0, sustains: 0, rests: 0, steps: pattern.length };
-        let hasActiveChord = false;
-        pattern.forEach((symbol) => {
-          if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveChord)) {
-            stats.pulses += 1;
-            hasActiveChord = true;
-            return;
-          }
-          if (symbol === "_") {
-            stats.sustains += 1;
-            return;
-          }
-          stats.rests += 1;
-          hasActiveChord = false;
-        });
-        return stats;
-      }
-
       function chordPatternToSlots(rawChords, rawPattern, maxSteps = CHORD_EDITOR_PART_STEPS) {
         const chords = parseChordPool(rawChords);
         const pattern = parseChordPattern(rawPattern, maxSteps);
@@ -961,14 +933,6 @@ import { bindPatternInput } from "./lib/ui-widgets.js";
           currentChord = "";
         });
         return slots;
-      }
-
-      function chordPatternSymbolGroups(symbols) {
-        const groups = [];
-        for (let index = 0; index < symbols.length; index += 4) {
-          groups.push(symbols.slice(index, index + 4).join(""));
-        }
-        return groups.join(" ");
       }
 
       function chordLayerPartValues(layerValues, partIndex) {
@@ -1010,30 +974,6 @@ import { bindPatternInput } from "./lib/ui-widgets.js";
           currentChord = value;
         });
         return chords.join(" ");
-      }
-
-      function formatDrumPattern(values) {
-        const symbols = drumLengthArray(values).map(drumValueToSymbol);
-        const groups = [];
-        for (let index = 0; index < symbols.length; index += 4) {
-          groups.push(symbols.slice(index, index + 4).join(""));
-        }
-        return groups.join(" ");
-      }
-
-      function parseDrumPattern(value) {
-        const raw = String(value || "").trim();
-        if (!raw) return null;
-        if (/[^xX_\-\s|.0]/.test(raw)) return null;
-        const symbols = [...raw.replace(/[\s|]/g, "").replace(/[.0]/g, "-")];
-        if (!symbols.length || symbols.length > DRUM_STEPS || DRUM_STEPS % symbols.length !== 0) return null;
-        const expanded = [];
-        while (expanded.length < DRUM_STEPS) expanded.push(...symbols);
-        return expanded.slice(0, DRUM_STEPS).map((symbol) => {
-          if (symbol === "X") return 1;
-          if (symbol === "x") return 0.72;
-          return 0;
-        });
       }
 
       function renderDrumPatternPreview(preview, rawPattern) {
