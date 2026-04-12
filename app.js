@@ -1841,12 +1841,34 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           tab.classList.toggle("pending", index === state.pendingScene);
           tab.addEventListener("click", () => selectScene(index));
           tab.addEventListener("dblclick", () => {
-            const nextName = promptBlocking("Scene name", scene.name);
-            if (nextName && nextName.trim()) {
-              scene.name = nextName.trim();
-              savePreset();
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = scene.name;
+            input.className = "scene-name-input";
+            input.spellcheck = false;
+            tab.replaceWith(input);
+            input.focus();
+            input.select();
+            const finishEdit = () => {
+              const nextName = input.value.trim();
+              if (nextName && nextName !== scene.name) {
+                scene.name = nextName;
+                savePreset();
+              }
+              input.replaceWith(tab);
+              tab.textContent = scene.name;
               renderScenes();
-            }
+            };
+            input.addEventListener("blur", finishEdit);
+            input.addEventListener("keydown", (e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                input.blur();
+              } else if (e.key === "Escape") {
+                input.value = scene.name;
+                input.blur();
+              }
+            });
           });
           tab.addEventListener("dragstart", (event) => {
             draggedSceneIndex = index;
