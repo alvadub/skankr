@@ -1775,10 +1775,8 @@
       }
 
       body.mode-text .track-head {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        align-items: center;
+        display: grid;
+        grid-template-columns: 4.5rem 1fr auto;
       }
 
       body.mode-text .drum-inline-editor,
