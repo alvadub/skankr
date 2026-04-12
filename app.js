@@ -38,7 +38,7 @@ import { getInternalSynthParams, playInternalChord, playDrumInternal } from "./l
 import { createAudioGraph } from "./lib/audio-graph.js";
 import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
 import { AudioRuntime } from "./lib/audio-runtime.js";
-import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, formatDrumPattern, renderDrumPatternPreview, renderChordPatternPreview, renderChordPoolPreview, chordLayerPartValues, formatChordPatternPart, formatChordPoolPart, chordActivePoolIndex, parseChordPool, chordPatternToSlots, normalizeDubPatternSymbol, dubPatternChars, parseDubPatternCells, reconcilePastePattern, parseBassInlinePattern, parseChordInlinePattern, isDubPatternToken, normalizeChordPoolText, parseDubBassSymbols, dubSceneLabel, dubLineComment, dubMetaValue, dubMetaMap, formatDubChordLayer, formatDubBassPattern, orderedUnique, dubDrumTrackKey, soundLabel, drumSoundLabel, bassPresetLabel, summarizeChordLayer, summarizeDrumTrack, summarizeBassEvents, summarizeScene as summarizeSceneFn, parseDubChannelLine, parseDubArrangement } from "./lib/ui-widgets.js";
+import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, formatDrumPattern, renderDrumPatternPreview, renderChordPatternPreview, renderChordPoolPreview, chordLayerPartValues, formatChordPatternPart, formatChordPoolPart, chordActivePoolIndex, parseChordPool, chordPatternToSlots, normalizeDubPatternSymbol, dubPatternChars, parseDubPatternCells, reconcilePastePattern, parseBassInlinePattern, parseChordInlinePattern, isDubPatternToken, normalizeChordPoolText, parseDubBassSymbols, dubSceneLabel, dubLineComment, dubMetaValue, dubMetaMap, formatDubChordLayer, formatDubBassPattern, orderedUnique, dubDrumTrackKey, soundLabel, drumSoundLabel, bassPresetLabel, summarizeChordLayer, summarizeDrumTrack, summarizeBassEvents, summarizeScene as summarizeSceneFn, parseDubChannelLine, parseDubArrangement, chordDubLineToSlots, drumDubLineToValues } from "./lib/ui-widgets.js";
 
       const LOOP_STEPS = STEPS;
       const INITIAL_SCENE_COUNT = 4;
@@ -1114,42 +1114,6 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           currentEvent = null;
         });
         return events.length ? sortAndTrimBassEvents(events) : null;
-      }
-
-      function chordDubLineToSlots(pattern, chordsText) {
-        const chords = String(chordsText || "").trim().split(/\s+/).filter(Boolean)
-          .flatMap((token) => { const m = token.match(/^(.+?)!(\d+)$/); return m ? Array(Math.max(1, Number(m[2]))).fill(m[1]) : [token]; });
-        if (chords.some((chord) => !parseChord(chord))) return null;
-        const cells = parseDubPatternCells(pattern, CHORD_STEPS, 1);
-        if (!cells) return null;
-        const slots = Array(CHORD_STEPS).fill("");
-        let chordIndex = 0;
-        let currentChord = "";
-        cells.forEach((cell, step) => {
-          const symbol = cell[0];
-          if (symbol === "x" || symbol === "X" || (symbol === "_" && !currentChord)) {
-            currentChord = chords[chordIndex] || "";
-            slots[step] = currentChord;
-            chordIndex += 1;
-            return;
-          }
-          if (symbol === "_" && currentChord) {
-            slots[step] = currentChord;
-            return;
-          }
-          currentChord = "";
-        });
-        return chordIndex > 0 ? slots : null;
-      }
-
-      function drumDubLineToValues(pattern) {
-        const cells = parseDubPatternCells(pattern, DRUM_STEPS, 1);
-        if (!cells) return null;
-        return cells.map((cell) => {
-          if (cell[0] === "X") return 1;
-          if (cell[0] === "x") return 0.72;
-          return 0;
-        });
       }
 
       function applyDubChannel(scene, channel) {
