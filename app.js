@@ -104,6 +104,8 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         projects: [],
         currentProjectId: null,
         dirty: false,
+        hasUrlSong: false,
+        pendingUrlSnapshot: null,
         sounds: {
           rhythm: "organ",
           harmony: "pad",
@@ -176,6 +178,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         projectLoad: document.getElementById("project-load"),
         projectRemove: document.getElementById("project-remove"),
         projectClear: document.getElementById("project-clear"),
+        loadUrlSong: document.getElementById("load-url-song"),
         strum: document.getElementById("strum"),
         padAttack: document.getElementById("pad-attack"),
         rhythmSound: document.getElementById("rhythm-sound"),
@@ -1748,6 +1751,9 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         }
         if (el.projectLoad) el.projectLoad.disabled = !(el.projectSelect && el.projectSelect.value);
         if (el.projectRemove) el.projectRemove.disabled = !(el.projectSelect && el.projectSelect.value);
+        if (el.loadUrlSong) {
+          el.loadUrlSong.style.display = state.hasUrlSong ? "block" : "none";
+        }
       }
 
       function confirmDiscardUnsavedChanges(actionLabel) {
@@ -1834,10 +1840,8 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         try {
           const snapshot = decodeShareState(encoded);
           if (!snapshot) throw new Error("Invalid shared state payload");
-          applyPresetData(snapshot);
-          state.currentProjectId = null;
-          state.dirty = false;
-          replaceUrlWithCurrentShareState();
+          state.pendingUrlSnapshot = snapshot;
+          state.hasUrlSong = true;
           return true;
         } catch (error) {
           console.warn("Could not load shared URL state", error);
@@ -3850,6 +3854,18 @@ el.shareLink.addEventListener("click", () => {
       el.projectLoad.addEventListener("click", loadSelectedProject);
       el.projectRemove.addEventListener("click", removeSelectedProject);
       el.projectClear.addEventListener("click", clearWorkingProject);
+      if (el.loadUrlSong) el.loadUrlSong.addEventListener("click", () => {
+        if (!state.pendingUrlSnapshot) return;
+        applyPresetData(state.pendingUrlSnapshot);
+        state.currentProjectId = null;
+        state.dirty = false;
+        state.hasUrlSong = false;
+        state.pendingUrlSnapshot = null;
+        window.history.replaceState(null, "", window.location.pathname);
+        releaseHarmony(audioContext?.currentTime || 0);
+        releaseAllBassNotes();
+        renderAll();
+      });
       el.projectSelect.addEventListener("change", () => {
         el.projectLoad.disabled = !el.projectSelect.value;
       });

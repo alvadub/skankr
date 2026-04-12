@@ -281,6 +281,22 @@
         border-color: var(--muted);
       }
 
+      .save-url-song {
+        grid-column: 1 / -1;
+        padding: 0.35rem 0.5rem;
+        font-size: 0.8rem;
+        background: var(--rhythm);
+        color: #000;
+        border: none;
+        border-radius: 0.4rem;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .save-url-song:hover {
+        opacity: 0.9;
+      }
+
       .hero-title-input {
         font-family: inherit;
         width: 100%;
