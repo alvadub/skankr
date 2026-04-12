@@ -254,8 +254,8 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
       function setChordPoolText(scene, layer, partIndex, value) {
         if (!scene.chordPoolText) {
           scene.chordPoolText = {
-            rhythm: chordPoolTextState(scene.rhythm),
-            harmony: chordPoolTextState(scene.harmony),
+            rhythm: chordPoolTextState(scene.rhythm, null, CHORD_EDITOR_PARTS, formatChordPoolPart),
+            harmony: chordPoolTextState(scene.harmony, null, CHORD_EDITOR_PARTS, formatChordPoolPart),
           };
         }
         scene.chordPoolText[layer][partIndex] = value;
@@ -2508,10 +2508,23 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           const patternInput = layerEl.querySelector(".chord-pattern-input");
           const patternPreview = layerEl.querySelector(".chord-pattern-preview");
           const syncPreviewScroll = () => { poolPreview.scrollLeft = poolInput.scrollLeft; };
+          const updateSlotsFromInputs = () => {
+            const currentSceneRef = currentScene();
+            const layer = layerEl.dataset.chordLayer;
+            const pattern = parseChordPattern(patternInput.value, CHORD_EDITOR_PART_STEPS);
+            const chords = parseChordPool(poolInput.value);
+            setChordPoolText(currentSceneRef, layer, partIndex, poolInput.value);
+            setChordPatternText(currentSceneRef, layer, partIndex, patternInput.value);
+            if (pattern && chords && chords.length === chordPatternStats(pattern).pulses) {
+              const slots = chordPatternToSlots(poolInput.value, patternInput.value, CHORD_EDITOR_PART_STEPS);
+              slots.forEach((value, index) => {
+                currentSceneRef[layer][stepOffset + index] = value;
+              });
+            }
+            savePreset();
+          };
           const syncEditor = () => {
-            updateChordEditorFromParts(el.chordGrid);
-            setChordPoolText(scene, layerEl.dataset.chordLayer, partIndex, poolInput.value);
-            setChordPatternText(scene, layerEl.dataset.chordLayer, partIndex, patternInput.value);
+            updateSlotsFromInputs();
             renderChordPoolPreview(poolPreview, poolInput.value, patternInput.value, stepOffset);
             refreshChordPattern();
             syncPreviewScroll();
@@ -2521,14 +2534,13 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
             parse: (value) => parseChordPattern(value, CHORD_EDITOR_PART_STEPS),
             format: chordPatternSymbolGroups,
             cycle: (s) => s === "_" ? "_" : s === "-" ? "x" : s === "x" ? "X" : "-",
-            onToggle: () => { syncEditor(); savePreset(); },
+            onToggle: () => { syncEditor(); },
           });
           poolInput.addEventListener("input", syncEditor);
           poolInput.addEventListener("scroll", syncPreviewScroll);
           poolInput.addEventListener("select", syncPreviewScroll);
           poolInput.addEventListener("blur", () => {
             poolInput.value = normalizeChordPoolText(poolInput.value);
-            setChordPoolText(scene, layerEl.dataset.chordLayer, partIndex, poolInput.value);
             syncEditor();
           });
           patternInput.addEventListener("input", syncEditor);
@@ -2795,18 +2807,17 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
       function updateChordEditorFromParts(editor) {
         const layerEls = [...editor.querySelectorAll("[data-chord-layer]")];
         const results = layerEls.map(updateChordEditorLayerValidity);
-        if (results.some((result) => !result.slots)) return;
         const scene = currentScene();
         CHORD_EDITOR_LAYERS.forEach((layer) => {
+          const layerResults = results.filter((result) => result.layer === layer.key && result.slots);
+          if (!layerResults.length) return;
           const values = Array(CHORD_STEPS).fill("");
-          results
-            .filter((result) => result.layer === layer.key)
-            .forEach((result) => {
-              const stepOffset = result.partIndex * CHORD_EDITOR_PART_STEPS;
-              result.slots.forEach((value, index) => {
-                values[stepOffset + index] = value;
-              });
+          layerResults.forEach((result) => {
+            const stepOffset = result.partIndex * CHORD_EDITOR_PART_STEPS;
+            result.slots.forEach((value, index) => {
+              values[stepOffset + index] = value;
             });
+          });
           scene[layer.key] = values;
         });
         savePreset();
@@ -2850,16 +2861,30 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         }).join("");
         fields.querySelectorAll("[data-chord-layer]").forEach((layerEl) => {
           const partEl = layerEl.closest("[data-chord-editor-part]");
-          const stepOffset = (Number(partEl?.dataset.chordEditorPart) || 0) * CHORD_EDITOR_PART_STEPS;
+          const partIndex = Number(partEl?.dataset.chordEditorPart) || 0;
+          const stepOffset = partIndex * CHORD_EDITOR_PART_STEPS;
           const poolInput = layerEl.querySelector(".chord-pool-input");
           const poolPreview = layerEl.querySelector(".chord-pool-preview");
           const patternInput = layerEl.querySelector(".chord-pattern-input");
           const patternPreview = layerEl.querySelector(".chord-pattern-preview");
           const syncPreviewScroll = () => { poolPreview.scrollLeft = poolInput.scrollLeft; };
+          const updateSlotsFromInputs = () => {
+            const currentSceneRef = currentScene();
+            const layer = layerEl.dataset.chordLayer;
+            const pattern = parseChordPattern(patternInput.value, CHORD_EDITOR_PART_STEPS);
+            const chords = parseChordPool(poolInput.value);
+            setChordPoolText(currentSceneRef, layer, partIndex, poolInput.value);
+            setChordPatternText(currentSceneRef, layer, partIndex, patternInput.value);
+            if (pattern && chords && chords.length === chordPatternStats(pattern).pulses) {
+              const slots = chordPatternToSlots(poolInput.value, patternInput.value, CHORD_EDITOR_PART_STEPS);
+              slots.forEach((value, index) => {
+                currentSceneRef[layer][stepOffset + index] = value;
+              });
+            }
+            savePreset();
+          };
           const syncEditor = () => {
-            updateChordEditorFromParts(fields);
-            setChordPoolText(scene, layerEl.dataset.chordLayer, partEl.dataset.chordEditorPart, poolInput.value);
-            setChordPatternText(scene, layerEl.dataset.chordLayer, partEl.dataset.chordEditorPart, patternInput.value);
+            updateSlotsFromInputs();
             renderChordPoolPreview(poolPreview, poolInput.value, patternInput.value, stepOffset);
             refreshChordPattern();
             syncPreviewScroll();
@@ -2869,11 +2894,15 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
             parse: (value) => parseChordPattern(value, CHORD_EDITOR_PART_STEPS),
             format: chordPatternSymbolGroups,
             cycle: (s) => s === "_" ? "_" : s === "-" ? "x" : s === "x" ? "X" : "-",
-            onToggle: () => { syncEditor(); savePreset(); },
+            onToggle: () => { syncEditor(); },
           });
           poolInput.addEventListener("input", syncEditor);
           poolInput.addEventListener("scroll", syncPreviewScroll);
           poolInput.addEventListener("select", syncPreviewScroll);
+          poolInput.addEventListener("blur", () => {
+            poolInput.value = normalizeChordPoolText(poolInput.value);
+            syncEditor();
+          });
           patternInput.addEventListener("input", syncEditor);
           updateChordEditorLayerValidity(layerEl);
           renderChordPoolPreview(poolPreview, poolInput.value, patternInput.value, stepOffset);
