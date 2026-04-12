@@ -244,6 +244,15 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           [15, 31].forEach((step) => scene.drums.openhat[step] = 1);
         }
 
+        scene.chordPoolText = {
+          rhythm: chordPoolTextState(scene.rhythm, null, CHORD_EDITOR_PARTS, formatChordPoolPart, CHORD_EDITOR_PART_STEPS),
+          harmony: chordPoolTextState(scene.harmony, null, CHORD_EDITOR_PARTS, formatChordPoolPart, CHORD_EDITOR_PART_STEPS),
+        };
+        scene.chordPatternText = {
+          rhythm: chordPoolTextState(scene.rhythm, null, CHORD_EDITOR_PARTS, formatChordPatternPart, CHORD_EDITOR_PART_STEPS),
+          harmony: chordPoolTextState(scene.harmony, null, CHORD_EDITOR_PARTS, formatChordPatternPart, CHORD_EDITOR_PART_STEPS),
+        };
+
         return scene;
       }
 
@@ -254,8 +263,8 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
       function setChordPoolText(scene, layer, partIndex, value) {
         if (!scene.chordPoolText) {
           scene.chordPoolText = {
-            rhythm: chordPoolTextState(scene.rhythm, null, CHORD_EDITOR_PARTS, formatChordPoolPart),
-            harmony: chordPoolTextState(scene.harmony, null, CHORD_EDITOR_PARTS, formatChordPoolPart),
+            rhythm: chordPoolTextState(scene.rhythm, null, CHORD_EDITOR_PARTS, formatChordPoolPart, CHORD_EDITOR_PART_STEPS),
+            harmony: chordPoolTextState(scene.harmony, null, CHORD_EDITOR_PARTS, formatChordPoolPart, CHORD_EDITOR_PART_STEPS),
           };
         }
         scene.chordPoolText[layer][partIndex] = value;
@@ -264,8 +273,8 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
       function setChordPatternText(scene, layer, partIndex, value) {
         if (!scene.chordPatternText) {
           scene.chordPatternText = {
-            rhythm: chordPoolTextState(scene.rhythm, null, CHORD_EDITOR_PARTS, formatChordPatternPart),
-            harmony: chordPoolTextState(scene.harmony, null, CHORD_EDITOR_PARTS, formatChordPatternPart),
+            rhythm: chordPoolTextState(scene.rhythm, null, CHORD_EDITOR_PARTS, formatChordPatternPart, CHORD_EDITOR_PART_STEPS),
+            harmony: chordPoolTextState(scene.harmony, null, CHORD_EDITOR_PARTS, formatChordPatternPart, CHORD_EDITOR_PART_STEPS),
           };
         }
         scene.chordPatternText[layer][partIndex] = value;
@@ -1197,12 +1206,12 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           rhythm,
           harmony,
           chordPoolText: {
-            rhythm: chordPoolTextState(rhythm, source.chordPoolText?.rhythm),
-            harmony: chordPoolTextState(harmony, source.chordPoolText?.harmony),
+            rhythm: chordPoolTextState(rhythm, source.chordPoolText?.rhythm, CHORD_EDITOR_PARTS, formatChordPoolPart, CHORD_EDITOR_PART_STEPS),
+            harmony: chordPoolTextState(harmony, source.chordPoolText?.harmony, CHORD_EDITOR_PARTS, formatChordPoolPart, CHORD_EDITOR_PART_STEPS),
           },
           chordPatternText: {
-            rhythm: chordPoolTextState(rhythm, source.chordPatternText?.rhythm, CHORD_EDITOR_PARTS, formatChordPatternPart),
-            harmony: chordPoolTextState(harmony, source.chordPatternText?.harmony, CHORD_EDITOR_PARTS, formatChordPatternPart),
+            rhythm: chordPoolTextState(rhythm, source.chordPatternText?.rhythm, CHORD_EDITOR_PARTS, formatChordPatternPart, CHORD_EDITOR_PART_STEPS),
+            harmony: chordPoolTextState(harmony, source.chordPatternText?.harmony, CHORD_EDITOR_PARTS, formatChordPatternPart, CHORD_EDITOR_PART_STEPS),
           },
           bass,
           bassText: bassTextState(bass, source.bassText),
@@ -1969,12 +1978,12 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           rhythm: [...source.rhythm],
           harmony: [...source.harmony],
           chordPoolText: {
-            rhythm: [...(source.chordPoolText?.rhythm || chordPoolTextState(source.rhythm))],
-            harmony: [...(source.chordPoolText?.harmony || chordPoolTextState(source.harmony))],
+            rhythm: [...(source.chordPoolText?.rhythm || chordPoolTextState(source.rhythm, null, CHORD_EDITOR_PARTS, formatChordPoolPart, CHORD_EDITOR_PART_STEPS))],
+            harmony: [...(source.chordPoolText?.harmony || chordPoolTextState(source.harmony, null, CHORD_EDITOR_PARTS, formatChordPoolPart, CHORD_EDITOR_PART_STEPS))],
           },
           chordPatternText: {
-            rhythm: [...(source.chordPatternText?.rhythm || chordPoolTextState(source.rhythm, null, CHORD_EDITOR_PARTS, formatChordPatternPart))],
-            harmony: [...(source.chordPatternText?.harmony || chordPoolTextState(source.harmony, null, CHORD_EDITOR_PARTS, formatChordPatternPart))],
+            rhythm: [...(source.chordPatternText?.rhythm || chordPoolTextState(source.rhythm, null, CHORD_EDITOR_PARTS, formatChordPatternPart, CHORD_EDITOR_PART_STEPS))],
+            harmony: [...(source.chordPatternText?.harmony || chordPoolTextState(source.harmony, null, CHORD_EDITOR_PARTS, formatChordPatternPart, CHORD_EDITOR_PART_STEPS))],
           },
           bass: source.bass.map((note) => note ? { ...note } : null),
           bassText: {
