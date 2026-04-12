@@ -38,7 +38,7 @@ import { getInternalSynthParams, playInternalChord, playDrumInternal } from "./l
 import { createAudioGraph } from "./lib/audio-graph.js";
 import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
 import { AudioRuntime } from "./lib/audio-runtime.js";
-import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, formatDrumPattern, renderDrumPatternPreview, renderChordPatternPreview, renderChordPoolPreview } from "./lib/ui-widgets.js";
+import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, formatDrumPattern, renderDrumPatternPreview, renderChordPatternPreview, renderChordPoolPreview, chordLayerPartValues, formatChordPatternPart, formatChordPoolPart, chordActivePoolIndex } from "./lib/ui-widgets.js";
 
       const LOOP_STEPS = STEPS;
       const INITIAL_SCENE_COUNT = 4;
@@ -933,47 +933,6 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           currentChord = "";
         });
         return slots;
-      }
-
-      function chordLayerPartValues(layerValues, partIndex) {
-        const startStep = partIndex * CHORD_EDITOR_PART_STEPS;
-        return fixedLengthArray(layerValues, "", CHORD_STEPS).slice(startStep, startStep + CHORD_EDITOR_PART_STEPS);
-      }
-
-      function formatChordPatternPart(layerValues, partIndex) {
-        const symbols = [];
-        let currentChord = "";
-        chordLayerPartValues(layerValues, partIndex).forEach((rawValue) => {
-          const value = String(rawValue || "").trim();
-          if (!value) {
-            symbols.push("-");
-            currentChord = "";
-            return;
-          }
-          if (currentChord && value === currentChord) {
-            symbols.push("_");
-            return;
-          }
-          symbols.push("x");
-          currentChord = value;
-        });
-        return chordPatternSymbolGroups(symbols);
-      }
-
-      function formatChordPoolPart(layerValues, partIndex) {
-        const chords = [];
-        let currentChord = "";
-        chordLayerPartValues(layerValues, partIndex).forEach((rawValue) => {
-          const value = String(rawValue || "").trim();
-          if (!value) {
-            currentChord = "";
-            return;
-          }
-          if (currentChord && value === currentChord) return;
-          chords.push(value);
-          currentChord = value;
-        });
-        return chords.join(" ");
       }
 
       function renderDrumPatternPreviews() {
@@ -3264,23 +3223,6 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           if (notesPreview && notesInput) notesPreview.scrollLeft = notesInput.scrollLeft;
           if (preview && patternInput) preview.scrollLeft = patternInput.scrollLeft;
         });
-      }
-
-      function chordActivePoolIndex(rawPattern, activeStep, maxSteps = CHORD_EDITOR_PART_STEPS) {
-        const pattern = parseChordPattern(rawPattern, maxSteps) || [];
-        if (activeStep < 0 || activeStep >= pattern.length) return -1;
-        let hasActiveChord = false;
-        let chordIndex = -1;
-        for (let step = 0; step <= activeStep && step < pattern.length; step += 1) {
-          const symbol = pattern[step];
-          if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveChord)) {
-            chordIndex += 1;
-            hasActiveChord = true;
-          } else if (symbol !== "_") {
-            hasActiveChord = false;
-          }
-        }
-        return hasActiveChord ? chordIndex : -1;
       }
 
       function renderChordPoolPreview(preview, rawChords, rawPattern, stepOffset = 0, maxSteps = CHORD_EDITOR_PART_STEPS) {
