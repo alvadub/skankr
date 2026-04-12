@@ -38,7 +38,7 @@ import { getInternalSynthParams, playInternalChord, playDrumInternal } from "./l
 import { createAudioGraph } from "./lib/audio-graph.js";
 import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
 import { AudioRuntime } from "./lib/audio-runtime.js";
-import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, formatDrumPattern } from "./lib/ui-widgets.js";
+import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, formatDrumPattern, renderDrumPatternPreview, renderChordPatternPreview, renderChordPoolPreview } from "./lib/ui-widgets.js";
 
       const LOOP_STEPS = STEPS;
       const INITIAL_SCENE_COUNT = 4;
@@ -976,39 +976,10 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         return chords.join(" ");
       }
 
-      function renderDrumPatternPreview(preview, rawPattern) {
-        if (!preview) return;
-        preview.replaceChildren();
-        const raw = String(rawPattern || "");
-        const activeStep = state.playhead >= 0 ? state.playhead % DRUM_STEPS : -1;
-        let step = 0;
-        [...raw].forEach((char) => {
-          if (/[\s|]/.test(char)) {
-            preview.append(document.createTextNode(char));
-            return;
-          }
-          const cell = document.createElement("span");
-          cell.textContent = char;
-          const normalized = char === "." || char === "0" ? "-" : char;
-          if (!["x", "X", "_", "-"].includes(normalized) || step >= DRUM_STEPS) {
-            cell.className = "invalid";
-          } else {
-            cell.classList.toggle("accent", normalized === "X");
-            cell.classList.toggle("on", normalized === "x");
-            cell.classList.toggle("sustain", normalized === "_");
-            cell.classList.toggle("rest", normalized === "-");
-            cell.classList.toggle("playing", step === activeStep);
-            cell.dataset.step = step;
-          }
-          step += 1;
-          preview.append(cell);
-        });
-      }
-
       function renderDrumPatternPreviews() {
         document.querySelectorAll(".drum-pattern-preview").forEach((preview) => {
           const input = preview.parentElement?.querySelector(".drum-pattern-input");
-          renderDrumPatternPreview(preview, input?.value);
+          renderDrumPatternPreview(preview, input?.value, state.playhead >= 0 ? state.playhead % DRUM_STEPS : -1, DRUM_STEPS);
           if (input) preview.scrollLeft = input.scrollLeft;
         });
       }
@@ -3313,62 +3284,13 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
       }
 
       function renderChordPoolPreview(preview, rawChords, rawPattern, stepOffset = 0, maxSteps = CHORD_EDITOR_PART_STEPS) {
-        if (!preview) return;
-        preview.replaceChildren();
-        const pattern = parseChordPattern(rawPattern, maxSteps);
-        const expectedChords = pattern ? chordPatternStats(pattern).pulses : 0;
-        const activeChordIndex = chordActivePoolIndex(rawPattern, state.playhead - stepOffset, maxSteps);
-        let chordIndex = 0;
-        const parts = String(rawChords || "").match(/\s+|\S+/g) || [];
-        parts.forEach((part) => {
-          if (/^\s+$/.test(part)) {
-            preview.append(document.createTextNode(part));
-            return;
-          }
-          const cell = document.createElement("span");
-          cell.textContent = part;
-          if (!parseChord(part)) {
-            cell.classList.add("invalid");
-          } else if (chordIndex >= expectedChords) {
-            cell.classList.add("extra");
-          } else {
-            cell.classList.add("on");
-          }
-          cell.classList.toggle("playing", chordIndex === activeChordIndex);
-          preview.append(cell);
-          chordIndex += 1;
-        });
+        const activeStep = state.playhead >= 0 ? state.playhead - stepOffset : -1;
+        renderChordPoolPreview(preview, rawChords, rawPattern, activeStep, maxSteps);
       }
 
       function renderChordPatternPreview(preview, rawPattern, stepOffset = 0, maxSteps = CHORD_EDITOR_PART_STEPS) {
-        if (!preview) return;
-        preview.replaceChildren();
-        const raw = String(rawPattern || "");
-        const activeStep = state.playhead - stepOffset;
-        let hasActiveChord = false;
-        let step = 0;
-        [...raw].forEach((char) => {
-          if (/[\s|]/.test(char)) {
-            preview.append(document.createTextNode(char));
-            return;
-          }
-          const cell = document.createElement("span");
-          cell.textContent = char;
-          const symbol = char === "." || char === "0" ? "-" : char;
-          if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveChord)) {
-            cell.classList.add(symbol === "X" ? "accent" : "on");
-            hasActiveChord = true;
-          } else if (symbol === "_") {
-            cell.classList.add("sustain");
-          } else if (symbol === "-") {
-            cell.classList.add("rest");
-            hasActiveChord = false;
-          }
-          cell.dataset.step = step;
-          cell.classList.toggle("playing", activeStep === step);
-          preview.append(cell);
-          step += 1;
-        });
+        const activeStep = state.playhead >= 0 ? state.playhead - stepOffset : -1;
+        renderChordPatternPreview(preview, rawPattern, activeStep, maxSteps);
       }
 
       function updateChordEditorLayerValidity(layerEl) {
