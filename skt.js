@@ -28,6 +28,11 @@ export {
   parseBassNotes,
   parseBassPattern,
   sortAndTrimBassEvents,
+  // subdivision
+  SUBDIVISIONS,
+  DEFAULT_SUBDIVISIONS,
+  subdivisionToBeats,
+  isValidSubdivision,
   // misc
   collectIndexed,
   isDefaultSceneName,
@@ -72,12 +77,39 @@ const DRUM_KIT_NAMES = new Set([
 
 const BASS_PRESET_NAMES = new Set(["sub", "dub", "rubber", "square", "custom"]);
 
+const SUBDIVISIONS = {
+  "1n":  4,
+  "2n":  2,
+  "4n":  1,
+  "4t":  2/3,
+  "8n":  0.5,
+  "8t":  1/3,
+  "16n": 0.25,
+  "16t": 1/6,
+  "32n": 0.125,
+};
+
+const DEFAULT_SUBDIVISIONS = {
+  drums: "8n",
+  rhythm: "4n",
+  harmony: "4n",
+  bass: "16n",
+};
+
 const NOTE_ROOTS = {
   C: 0, "C#": 1, Db: 1, D: 2, "D#": 3, Eb: 3, E: 4, F: 5,
   "F#": 6, Gb: 6, G: 7, "G#": 8, Ab: 8, A: 9, "A#": 10, Bb: 10, B: 11,
 };
 
 const NOTE_NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+
+function isValidSubdivision(value) {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(SUBDIVISIONS, value);
+}
+
+function subdivisionToBeats(subdiv) {
+  return isValidSubdivision(subdiv) ? SUBDIVISIONS[subdiv] : 1;
+}
 
 // --- Base64 helpers ---
 
