@@ -657,8 +657,10 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         const patternText = scene.chordPatternText?.harmony || [];
         const fullPattern = patternText.join(" ");
         const pattern = parseChordPattern(fullPattern, CHORD_STEPS);
-        if (!pattern || step >= pattern.length) return "-";
-        return pattern[step];
+        if (!pattern) return "-";
+        const flat = pattern.flat(1);
+        if (step >= flat.length) return "-";
+        return flat[step];
       }
 
       function scheduleStep(step, time) {
@@ -2805,12 +2807,13 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
 
       function bassActiveNoteIndex(rawPattern, activeTick, maxTicks = BASS_TICKS) {
         const pattern = parseBassPattern(rawPattern, maxTicks) || [];
+        const flat = pattern.flat(1);
         if (activeTick < 0) return -1;
-        if (activeTick >= pattern.length) return -1;
+        if (activeTick >= flat.length) return -1;
         let hasActiveNote = false;
         let noteIndex = -1;
-        for (let tick = 0; tick <= activeTick && tick < pattern.length; tick += 1) {
-          const symbol = pattern[tick];
+        for (let tick = 0; tick <= activeTick && tick < flat.length; tick += 1) {
+          const symbol = flat[tick];
           if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveNote)) {
             noteIndex += 1;
             hasActiveNote = true;
@@ -2870,14 +2873,53 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           preview.dataset.pattern = raw;
           let hasActiveNote = false;
           let tick = 0;
-          [...raw].forEach((char) => {
-            if (/[\s|]/.test(char)) {
-              preview.append(document.createTextNode(char));
+          const chars = [];
+          for (let i = 0; i < raw.length; i += 1) {
+            const ch = raw[i];
+            if (ch === "[") {
+              const end = raw.indexOf("]", i + 1);
+              if (end < 0) break;
+              chars.push({ substep: raw.slice(i + 1, end).split(""), start: i, end });
+              i = end;
+              continue;
+            }
+            if (/[\s|]/.test(ch)) {
+              chars.push({ space: ch });
+              continue;
+            }
+            chars.push({ char: ch });
+          }
+          chars.forEach((item) => {
+            if (item.space) {
+              preview.append(document.createTextNode(item.space));
+              return;
+            }
+            if (item.substep) {
+              const group = document.createElement("span");
+              group.className = "substep-group";
+              item.substep.forEach((ch) => {
+                const cell = document.createElement("span");
+                cell.textContent = ch;
+                const symbol = ch === "." || ch === "0" ? "-" : ch;
+                if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveNote)) {
+                  cell.classList.add(symbol === "X" ? "accent" : "on");
+                  hasActiveNote = true;
+                } else if (symbol === "_") {
+                  cell.classList.add("sustain");
+                } else if (symbol === "-") {
+                  cell.classList.add("rest");
+                  hasActiveNote = false;
+                }
+                cell.dataset.tick = tick;
+                group.append(cell);
+                tick += 1;
+              });
+              preview.append(group);
               return;
             }
             const cell = document.createElement("span");
-            cell.textContent = char;
-            const symbol = char === "." || char === "0" ? "-" : char;
+            cell.textContent = item.char;
+            const symbol = item.char === "." || item.char === "0" ? "-" : item.char;
             if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveNote)) {
               cell.classList.add(symbol === "X" ? "accent" : "on");
               hasActiveNote = true;

@@ -190,19 +190,37 @@ function parseBassNotes(rawNotes) {
   return notes.some((n) => !n) ? null : notes;
 }
 
+function splitPatternWithSubsteps(raw) {
+  const out = [];
+  for (let i = 0; i < raw.length; i += 1) {
+    const ch = raw[i];
+    if (ch === "[") {
+      const end = raw.indexOf("]", i + 1);
+      if (end < 0) break;
+      out.push(raw.slice(i + 1, end).split(""));
+      i = end;
+      continue;
+    }
+    out.push(ch);
+  }
+  return out;
+}
+
 function parseBassPattern(rawPattern, maxTicks = BASS_TICKS) {
   const raw = String(rawPattern || "").trim();
   if (!raw) return [];
-  if (/[^xX_\-\s|.0]/.test(raw)) return null;
-  const symbols = [...raw.replace(/[\s|]/g, "").replace(/[.0]/g, "-")];
-  if (!symbols.length || symbols.length > maxTicks) return null;
+  if (/[^xX_\-\[\]\s|.0]/.test(raw)) return null;
+  const symbols = splitPatternWithSubsteps(raw.replace(/[\s|]/g, "").replace(/[.0]/g, "-"));
+  const flat = symbols.flat(1);
+  if (!flat.length || flat.length > maxTicks) return null;
   return symbols;
 }
 
 function bassPatternStats(pattern) {
-  const stats = { pulses: 0, sustains: 0, rests: 0, ticks: pattern.length };
+  const flat = pattern.flat(1);
+  const stats = { pulses: 0, sustains: 0, rests: 0, ticks: flat.length };
   let hasActiveNote = false;
-  pattern.forEach((symbol) => {
+  flat.forEach((symbol) => {
     if (symbol === "x" || symbol === "X" || (symbol === "_" && !hasActiveNote)) {
       stats.pulses += 1;
       hasActiveNote = true;
@@ -220,11 +238,12 @@ function bassPatternToEvents(rawNotes, rawPattern, tickOffset = 0, maxTicks = BA
   const notes = parseBassNotes(rawNotes);
   const pattern = parseBassPattern(rawPattern, maxTicks);
   if (!notes || !pattern) return null;
+  const flat = pattern.flat(1);
   if (notes.length !== bassPatternStats(pattern).pulses) return null;
   const events = [];
   let noteIndex = 0;
   let currentEvent = null;
-  pattern.forEach((symbol, tick) => {
+  flat.forEach((symbol, tick) => {
     if (symbol === "x" || symbol === "X" || (symbol === "_" && !currentEvent)) {
       const note = notes[noteIndex];
       if (!note) return;

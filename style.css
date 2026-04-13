@@ -1511,6 +1511,17 @@
         border-radius: 0.25rem;
       }
 
+      .bass-text-preview .substep-group {
+        display: inline;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 0.25rem;
+        padding: 0 0.1rem;
+      }
+
+      .bass-text-preview .substep-group span {
+        margin: 0 -0.05rem;
+      }
+
       .drum-pattern-overlay-wrap .drum-pattern-preview,
       .bass-text-overlay-wrap .chord-pattern-preview {
         z-index: 3;
