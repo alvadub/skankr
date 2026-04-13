@@ -145,24 +145,23 @@ describe('encodeDrumTrack', () => {
 describe('decodeDrumTrack', () => {
   it('decodes tile compression', () => {
     const result = decodeDrumTrack("(x-)16");
-    expect(result[0]).toBe(0.75);
-    expect(result[1]).toBe(0);
-    expect(result[2]).toBe(0.75);
+    expect(result[0]).toEqual([{ pos: 0, vel: 0.72 }]);
+    expect(result[1]).toBe(null);
+    expect(result[2]).toEqual([{ pos: 0, vel: 0.72 }]);
   });
 
   it('decodes !N RLE', () => {
-    // x-!14 = x hit, then - + 14 extra rests = 15 rests total
     const result = decodeDrumTrack("x-!14x-!14");
-    expect(result[0]).toBe(0.75);
-    expect(result.slice(1, 16)).toEqual(Array(15).fill(0));
-    expect(result[16]).toBe(0.75);
-    expect(result.slice(17)).toEqual(Array(15).fill(0));
+    expect(result[0]).toEqual([{ pos: 0, vel: 0.72 }]);
+    expect(result.slice(1, 16)).toEqual(Array(15).fill(null));
+    expect(result[16]).toEqual([{ pos: 0, vel: 0.72 }]);
+    expect(result.slice(17)).toEqual(Array(15).fill(null));
   });
 
   it('decodes raw pattern', () => {
-    const result = decodeDrumTrack("x---x---x---x---x---x---x---x---");
-    expect(result[0]).toBe(0.75);
-    expect(result[1]).toBe(0);
+    const result = decodeDrumTrack("x---x---x---x---x---x---x---");
+    expect(result[0]).toEqual([{ pos: 0, vel: 0.72 }]);
+    expect(result[1]).toBe(null);
   });
 });
 
@@ -200,9 +199,12 @@ describe('v1 → v2 migration compression', () => {
   });
 
   it('round-trips all drum tracks losslessly', () => {
-    expect(decodeDrumTrack(encodeDrumTrack(v1Kick)).map(v => v > 0 ? 1 : 0)).toEqual(v1Kick);
-    expect(decodeDrumTrack(encodeDrumTrack(v1Snare)).map(v => v > 0 ? 1 : 0)).toEqual(v1Snare);
-    expect(decodeDrumTrack(encodeDrumTrack(v1Hihat))).toEqual(v1Hihat.map(() => 0));
+    const kickDecoded = decodeDrumTrack(encodeDrumTrack(v1Kick));
+    expect(kickDecoded.map(s => s && s.length > 0 ? 1 : 0)).toEqual(v1Kick);
+    const snareDecoded = decodeDrumTrack(encodeDrumTrack(v1Snare));
+    expect(snareDecoded.map(s => s && s.length > 0 ? 1 : 0)).toEqual(v1Snare);
+    const hihatDecoded = decodeDrumTrack(encodeDrumTrack(v1Hihat));
+    expect(hihatDecoded.every(s => s === null)).toBe(true);
   });
 });
 
@@ -210,22 +212,28 @@ describe('drum RLE round-trip', () => {
   it('round-trips sparse kick pattern', () => {
     const track = drumTrack([0, 16]);
     const decoded = decodeDrumTrack(encodeDrumTrack(track));
-    expect(decoded[0]).toBe(0.75);
-    expect(decoded[16]).toBe(0.75);
-    expect(decoded[1]).toBe(0);
-    expect(decoded[15]).toBe(0);
+    expect(decoded[0]).toEqual([{ pos: 0, vel: 0.72 }]);
+    expect(decoded[16]).toEqual([{ pos: 0, vel: 0.72 }]);
+    expect(decoded[1]).toBe(null);
+    expect(decoded[15]).toBe(null);
   });
 
   it('round-trips periodic hi-hat', () => {
     const track = Array(DRUM_STEPS).fill(0).map((_, i) => i % 2 === 0 ? 0.75 : 0);
     const decoded = decodeDrumTrack(encodeDrumTrack(track));
-    expect(decoded).toEqual(track);
+    track.forEach((v, i) => {
+      if (v > 0) {
+        expect(decoded[i]).toEqual([{ pos: 0, vel: 0.72 }]);
+      } else {
+        expect(decoded[i]).toBe(null);
+      }
+    });
   });
 
   it('round-trips irregular fill', () => {
     const track = drumTrack([0, 5, 8, 10]);
     const decoded = decodeDrumTrack(encodeDrumTrack(track));
-    [0, 5, 8, 10].forEach(i => expect(decoded[i]).toBe(0.75));
-    [1, 2, 3, 4, 6, 7, 9, 11].forEach(i => expect(decoded[i]).toBe(0));
+    [0, 5, 8, 10].forEach(i => expect(decoded[i]).toEqual([{ pos: 0, vel: 0.72 }]));
+    [1, 2, 3, 4, 6, 7, 9, 11].forEach(i => expect(decoded[i]).toBe(null));
   });
 });

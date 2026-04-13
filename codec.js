@@ -88,7 +88,15 @@ export function decodeChordRle(rle) {
 }
 
 export function encodeDrumTrack(track) {
-  const pattern = drumLengthArray(track).map(drumValueToSymbol).join("");
+  const values = fixedLengthArray(track, 0, DRUM_STEPS).map((step) => {
+    if (step == null) return 0;
+    if (Array.isArray(step)) {
+      if (step.length === 0) return 0;
+      return step[0]?.vel || 0;
+    }
+    return Number(step) || 0;
+  });
+  const pattern = values.map(drumValueToSymbol).join("");
   let best = pattern;
   for (const tileLength of [1, 2, 4, 8, 16]) {
     if (DRUM_STEPS % tileLength !== 0) continue;
@@ -138,10 +146,10 @@ export function decodeDrumTrack(encoded) {
   return [...pattern]
     .slice(0, DRUM_STEPS)
     .map((symbol) => {
-      if (symbol === "X") return 1;
-      if (symbol === "x") return 0.75;
-      return 0;
+      if (symbol === "X") return [{ pos: 0, vel: 1 }];
+      if (symbol === "x") return [{ pos: 0, vel: 0.72 }];
+      return null;
     })
-    .concat(Array(Math.max(0, DRUM_STEPS - pattern.length)).fill(0))
+    .concat(Array(Math.max(0, DRUM_STEPS - pattern.length)).fill(null))
     .slice(0, DRUM_STEPS);
 }

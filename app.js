@@ -1,6 +1,6 @@
 import {
   STEPS, CHORD_STEPS, DRUM_STEPS,
-  clampNumber, fixedLengthArray, normalizeDrumValue, drumLengthArray, drumValueToSymbol,
+  clampNumber, fixedLengthArray, drumValueToSymbol,
   encodeChordRle, decodeChordRle, encodeDrumTrack, decodeDrumTrack,
 } from "./codec.js";
 import {
@@ -38,7 +38,7 @@ import { getInternalSynthParams, playInternalChord, playDrumInternal } from "./l
 import { createAudioGraph } from "./lib/audio-graph.js";
 import { getWebAudioFontPlayer, loadSoundProfile } from "./lib/audio-loader.js";
 import { AudioRuntime } from "./lib/audio-runtime.js";
-import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, formatDrumPattern, renderDrumPatternPreview, renderChordPatternPreview as renderChordPatternPreviewFn, renderChordPoolPreview as renderChordPoolPreviewFn, chordLayerPartValues, formatChordPatternPart, formatChordPoolPart, chordActivePoolIndex, parseChordPool, chordPatternToSlots, normalizeDubPatternSymbol, dubPatternChars, parseDubPatternCells, reconcilePastePattern, parseBassInlinePattern, parseChordInlinePattern, isDubPatternToken, normalizeChordPoolText, parseDubBassSymbols, dubSceneLabel, dubLineComment, dubMetaValue, dubMetaMap, formatDubChordLayer, formatDubBassPattern, orderedUnique, dubDrumTrackKey, soundLabel, drumSoundLabel, bassPresetLabel, summarizeChordLayer, summarizeDrumTrack, summarizeBassEvents, summarizeScene as summarizeSceneFn, parseDubChannelLine, parseDubArrangement, chordDubLineToSlots, drumDubLineToValues, bassDubLineToEvents, detectPasteFormat, chordPoolTextState, bassTextState, createBlankScene, normalizeChordCatalog, chordCatalogSignature, encodeChordCatalogPayload, decodeChordCatalogPayload, normalizeUiMode, escapeAttr, normalizeDrumSounds, uiIcon } from "./lib/ui-widgets.js";
+import { bindPatternInput, parseChordPattern, validateChordPattern, validateBassPattern, validateChordPool, validateBassNotes, chordPatternStats, chordPatternSymbolGroups, parseDrumPattern, validateDrumPattern, formatDrumPattern, renderDrumPatternPreview, renderChordPatternPreview as renderChordPatternPreviewFn, renderChordPoolPreview as renderChordPoolPreviewFn, chordLayerPartValues, formatChordPatternPart, formatChordPoolPart, chordActivePoolIndex, parseChordPool, chordPatternToSlots, normalizeDubPatternSymbol, dubPatternChars, parseDubPatternCells, reconcilePastePattern, parseBassInlinePattern, parseChordInlinePattern, isDubPatternToken, normalizeChordPoolText, parseDubBassSymbols, dubSceneLabel, dubLineComment, dubMetaValue, dubMetaMap, formatDubChordLayer, formatDubBassPattern, orderedUnique, dubDrumTrackKey, soundLabel, drumSoundLabel, bassPresetLabel, summarizeChordLayer, summarizeDrumTrack, summarizeBassEvents, summarizeScene as summarizeSceneFn, parseDubChannelLine, parseDubArrangement, chordDubLineToSlots, drumDubLineToValues, bassDubLineToEvents, detectPasteFormat, chordPoolTextState, bassTextState, createBlankScene, normalizeChordCatalog, chordCatalogSignature, encodeChordCatalogPayload, decodeChordCatalogPayload, normalizeUiMode, escapeAttr, normalizeDrumSounds, uiIcon, drumValuesToHits, drumHitsToValues } from "./lib/ui-widgets.js";
 
       const LOOP_STEPS = STEPS;
       const INITIAL_SCENE_COUNT = 4;
@@ -258,10 +258,10 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           scene.rhythm[28] = "F7";
           scene.harmony[0] = "C";
           scene.harmony[16] = "F";
-          scene.drums.kick = parseDrumPattern("[xx]-- ---- [xx]-- ----") || [];
-          scene.drums.snare = parseDrumPattern("---- [xx]-- ---- [xx]--") || [];
-          scene.drums.hihat = parseDrumPattern("[x-x]--- [x-x]--- [x-x]--- [x-x]---") || [];
-          scene.drums.openhat = parseDrumPattern("---- ---- ---- [xx]--") || [];
+          scene.drums.kick = parseDrumPattern("[xx]---[xx]---") || [];
+          scene.drums.snare = parseDrumPattern("----X-------X---") || [];
+          scene.drums.hihat = parseDrumPattern("[x-x]-[x-x]-") || [];
+          scene.drums.openhat = parseDrumPattern("---------------X") || [];
           scene.bass = [
             {tick: 0, midi: 36, length: 4},
             {tick: 4, midi: 36, length: 4},
@@ -1155,7 +1155,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         if (!drumTrack) return;
         const values = drumDubLineToValues(channel.pattern);
         if (!values) throw new Error(`Invalid ${channel.instrument} DUB line in ${scene.name}.`);
-        scene.drums[drumTrack.key] = values;
+        scene.drums[drumTrack.key] = drumValuesToHits(values);
         if (Number.isFinite(channel.volume)) {
           scene.trackVolumes[drumTrack.key] = clampNumber(channel.volume, 0, 1, scene.trackVolumes[drumTrack.key]);
         }
@@ -1337,7 +1337,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           bassText: bassTextState(bass, source.bassText, formatBassNotes, formatBassPattern),
           drums: Object.fromEntries(TRACKS.map((track) => [
             track.key,
-            drumLengthArray(source.drums?.[track.key]).map(normalizeDrumValue),
+            drumValuesToHits(source.drums?.[track.key]),
           ])),
           mutes: {
             rhythm: Boolean(source.mutes?.rhythm),
@@ -1369,7 +1369,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           updatedAt: typeof source.updatedAt === "string" ? source.updatedAt : new Date().toISOString(),
           drums: Object.fromEntries(TRACKS.map((track) => [
             track.key,
-            drumLengthArray(source.drums?.[track.key]).map(normalizeDrumValue),
+            drumValuesToHits(source.drums?.[track.key]),
           ])),
         };
       }
@@ -1378,7 +1378,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         const scene = currentScene();
         return Object.fromEntries(TRACKS.map((track) => [
           track.key,
-          drumLengthArray(scene.drums[track.key]).map(normalizeDrumValue),
+          drumHitsToValues(scene.drums[track.key]),
         ]));
       }
 
@@ -3006,28 +3006,28 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         const poolInput = layerEl.querySelector(".chord-pool-input");
         const patternInput = layerEl.querySelector(".chord-pattern-input");
         const statsEl = layerEl.querySelector(".bass-editor-stats");
-        const chords = parseChordPool(poolInput.value);
-        const pattern = parseChordPattern(patternInput.value, CHORD_EDITOR_PART_STEPS);
-        const stats = pattern ? chordPatternStats(pattern) : { pulses: 0, sustains: 0, rests: 0, steps: 0 };
-        const invalidPool = chords === null || (pattern !== null && chords.length !== stats.pulses);
+        const poolValidation = validateChordPool(poolInput.value);
+        const patternValidation = validateChordPattern(patternInput.value, CHORD_EDITOR_PART_STEPS);
+        const chords = poolValidation.valid ? poolValidation.chords : null;
+        const pattern = patternValidation.valid ? parseChordPattern(patternInput.value, CHORD_EDITOR_PART_STEPS) : null;
+        const stats = patternValidation.valid ? patternValidation.stats : { pulses: 0, sustains: 0, rests: 0, steps: 0 };
+        const invalidPool = !poolValidation.valid || (patternValidation.valid && poolValidation.chords.length !== stats.pulses);
         poolInput.classList.toggle("invalid", invalidPool);
         poolInput.toggleAttribute("aria-invalid", invalidPool);
-        patternInput.classList.toggle("invalid", pattern === null);
-        patternInput.toggleAttribute("aria-invalid", pattern === null);
-        poolInput.title = invalidPool
-          ? `Enter exactly ${stats.pulses} chord${stats.pulses === 1 ? "" : "s"} for this pattern.`
-          : "";
-        patternInput.title = pattern === null
-          ? `Use X, x, _, and - for up to ${CHORD_EDITOR_PART_STEPS} steps. Spaces, ., and 0 are allowed separators/rests.`
-          : "";
+        patternInput.classList.toggle("invalid", !patternValidation.valid);
+        patternInput.toggleAttribute("aria-invalid", !patternValidation.valid);
+        poolInput.title = poolValidation.error
+          ? poolValidation.error
+          : (invalidPool ? `Enter exactly ${stats.pulses} chord${stats.pulses === 1 ? "" : "s"} for this pattern.` : "");
+        patternInput.title = patternValidation.error || "";
         if (statsEl) {
-          statsEl.textContent = `chords ${chords?.length ?? 0}/${stats.pulses} | pulses ${stats.pulses} | sustains ${stats.sustains} | rests ${stats.rests} | steps ${stats.steps}/${CHORD_EDITOR_PART_STEPS}`;
+          statsEl.textContent = `chords ${poolValidation.chords?.length ?? 0}/${stats.pulses} | pulses ${stats.pulses} | sustains ${stats.sustains} | rests ${stats.rests} | steps ${stats.steps}/${CHORD_EDITOR_PART_STEPS}`;
           statsEl.classList.toggle("invalid", invalidPool);
         }
         return {
           layer: layerEl.dataset.chordLayer,
           partIndex: Number(layerEl.closest("[data-chord-editor-part]")?.dataset.chordEditorPart) || 0,
-          slots: invalidPool || pattern === null ? null : chordPatternToSlots(poolInput.value, patternInput.value, CHORD_EDITOR_PART_STEPS),
+          slots: invalidPool || !patternValidation.valid ? null : chordPatternToSlots(poolInput.value, patternInput.value, CHORD_EDITOR_PART_STEPS),
         };
       }
 
@@ -3249,26 +3249,26 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         };
         const syncBassInlineEditor = () => {
           const maxTicks = Number(notesInput.dataset.maxTicks) || BASS_TICKS;
-          const notes = parseBassNotes(notesInput.value);
+          const notesValidation = validateBassNotes(notesInput.value);
+          const patternValidation = validateBassPattern(patternInput.value, maxTicks);
           const pattern = parseBassPattern(patternInput.value, maxTicks);
-          const patternStats = pattern ? bassPatternStats(pattern) : { pulses: 0, sustains: 0, rests: 0, ticks: 0 };
-          const invalidNotes = notes === null || (pattern !== null && notes.length !== patternStats.pulses);
+          const patternStats = patternValidation.valid ? patternValidation.stats : { pulses: 0, sustains: 0, rests: 0, ticks: 0 };
+          const notes = notesValidation.valid ? notesValidation.notes : null;
+          const invalidNotes = !notesValidation.valid || (patternValidation.valid && notesValidation.count !== patternStats.pulses);
           scene.bassText = {
             notes: notesInput.value,
             pattern: patternInput.value,
           };
           notesInput.classList.toggle("invalid", invalidNotes);
           notesInput.toggleAttribute("aria-invalid", invalidNotes);
-          patternInput.classList.toggle("invalid", pattern === null);
-          patternInput.toggleAttribute("aria-invalid", pattern === null);
-          notesInput.title = invalidNotes
-            ? `Enter exactly ${patternStats.pulses} note${patternStats.pulses === 1 ? "" : "s"} for this pattern. Each x starts a note; _ starts one only after silence.`
-            : "";
-          patternInput.title = pattern === null
-            ? `Use X, x, _, and - for up to ${maxTicks} fine pulses.`
-            : "";
+          patternInput.classList.toggle("invalid", !patternValidation.valid);
+          patternInput.toggleAttribute("aria-invalid", !patternValidation.valid);
+          notesInput.title = notesValidation.error
+            ? notesValidation.error
+            : (invalidNotes ? `Enter exactly ${patternStats.pulses} note${patternStats.pulses === 1 ? "" : "s"} for this pattern.` : "");
+          patternInput.title = patternValidation.error || "";
           if (stats) {
-            stats.textContent = `notes ${notes?.length ?? 0}/${patternStats.pulses} | pulses ${patternStats.pulses} | ticks ${patternStats.ticks}/${maxTicks}`;
+            stats.textContent = `notes ${notesValidation.count}/${patternStats.pulses} | pulses ${patternStats.pulses} | ticks ${patternStats.ticks}/${maxTicks}`;
             stats.classList.toggle("invalid", invalidNotes);
           }
           if (notes && pattern && notes.length === patternStats.pulses) {
@@ -3322,10 +3322,10 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           const editor = document.createElement("div");
           editor.className = "drum-inline-editor";
           const drumPatternText = scene.drumPatternText?.[track.key] || {
-            kick: "[xx]-- ---- [xx]-- ----",
-            snare: "---- [xx]-- ---- [xx]--",
-            hihat: "[x-x]--- [x-x]--- [x-x]--- [x-x]---",
-            openhat: "---- ---- ---- [xx]--",
+            kick: "[xx]---[xx]---",
+            snare: "----X-------X---",
+            hihat: "[x-x]-[x-x]-",
+            openhat: "---------------X",
           }[track.key] || formatDrumPattern(scene.drums[track.key]);
           editor.innerHTML = `
             <label class="drum-inline-row"><span class="inline-label-icon" aria-hidden="true">${uiIcon("pattern")}</span><span class="sr-only">${track.label} pattern</span>
@@ -3338,11 +3338,11 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           const patternInput = editor.querySelector(".drum-pattern-input");
           const patternPreview = editor.querySelector(".drum-pattern-preview");
           const patternWrap = editor.querySelector(".drum-pattern-overlay-wrap");
-          const updatePatternValidity = (parsed) => {
+          const updatePatternValidity = (parsed, error = null) => {
             patternInput.classList.toggle("invalid", !parsed);
             patternInput.toggleAttribute("aria-invalid", !parsed);
             patternWrap.classList.toggle("invalid", !parsed);
-            patternInput.title = parsed ? "" : "Use X, x, _, and - in a 1, 2, 4, 8, 16, or 32 step drum pattern.";
+            patternInput.title = parsed ? "" : (error || "Use X, x, _, and - in a 1, 2, 4, 8, 16, or 32 step drum pattern.");
           };
           const { refresh: updatePatternPreview } = bindPatternInput(patternInput, patternPreview, {
             render: renderDrumPatternPreview,
@@ -3358,21 +3358,25 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           });
           patternInput.addEventListener("input", () => {
             const parsed = parseDrumPattern(patternInput.value);
-            updatePatternValidity(parsed);
+            const validation = validateDrumPattern(patternInput.value);
+            updatePatternValidity(parsed, validation.error);
             updatePatternPreview();
             if (!parsed) return;
             scene.drums[track.key] = parsed;
             if (!scene.drumPatternText) scene.drumPatternText = {};
             scene.drumPatternText[track.key] = patternInput.value;
             savePreset();
+            renderDrumLaneRolls();
           });
           patternInput.addEventListener("blur", () => {
             const parsed = parseDrumPattern(patternInput.value);
             if (!parsed) {
               patternInput.value = scene.drumPatternText?.[track.key] || formatDrumPattern(scene.drums[track.key]);
-              updatePatternValidity(parseDrumPattern(patternInput.value));
+              const validation = validateDrumPattern(patternInput.value);
+              updatePatternValidity(parseDrumPattern(patternInput.value), validation.error);
             }
             updatePatternPreview();
+            renderDrumLaneRolls();
           });
           updatePatternPreview();
           head.querySelector("[data-undo-drum]").addEventListener("click", () => {
@@ -3405,7 +3409,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         if (!preset) return;
         const scene = currentScene();
         TRACKS.forEach((track) => {
-          scene.drums[track.key] = drumLengthArray(preset[track.key]).map(normalizeDrumValue);
+          scene.drums[track.key] = drumValuesToHits(preset[track.key]);
         });
         state.activeDrumPreset = { genre: genreKey, preset: presetName };
         state.drumPresetGenre = genreKey;
@@ -3448,7 +3452,7 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         if (!preset) return;
         const scene = currentScene();
         TRACKS.forEach((track) => {
-          scene.drums[track.key] = drumLengthArray(preset.drums[track.key]).map(normalizeDrumValue);
+          scene.drums[track.key] = drumValuesToHits(preset.drums[track.key]);
         });
         state.activeDrumPreset = { genre: "user", preset: preset.id };
         setBpm(preset.bpm);

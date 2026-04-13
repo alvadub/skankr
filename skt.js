@@ -54,6 +54,19 @@ import {
   encodeDrumTrack, decodeDrumTrack,
 } from "./codec.js";
 
+function drumValuesToHits(values) {
+  if (!Array.isArray(values)) return Array(DRUM_STEPS).fill(null);
+  const isHitFormat = values.some((v) => Array.isArray(v));
+  if (isHitFormat) {
+    return fixedLengthArray(values, null, DRUM_STEPS);
+  }
+  return drumLengthArray(values).map((v) => {
+    const vel = normalizeDrumValue(v);
+    if (vel <= 0) return null;
+    return [{ pos: 0, vel }];
+  });
+}
+
 // --- Constants ---
 
 const BASS_TICKS_PER_STEP = 4;
@@ -317,7 +330,7 @@ function normalizeScene(rawScene, index) {
     bass,
     drums: Object.fromEntries(TRACKS.map((track) => [
       track.key,
-      drumLengthArray(source.drums?.[track.key]).map(normalizeDrumValue),
+      drumValuesToHits(source.drums?.[track.key]),
     ])),
     mutes: {
       rhythm:  Boolean(source.mutes?.rhythm),

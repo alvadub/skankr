@@ -104,8 +104,9 @@ describe("encodeScene / decodeScene — drum patterns", () => {
     const kick = Array(32).fill(0).map((_, i) => i % 4 === 0 ? 1 : 0);
     const scene = blankScene({ drums: { ...Object.fromEntries(TRACKS.map((t) => [t.key, Array(32).fill(0)])), kick } });
     const back  = decodeScene(encodeScene(scene, 0), 0);
-    back.drums.kick.forEach((v, i) => {
-      expect(v > 0).toBe(kick[i] > 0);
+    back.drums.kick.forEach((step, i) => {
+      const hasHit = Boolean(step && step.length > 0);
+      expect(hasHit).toBe(kick[i] > 0);
     });
   });
 
@@ -242,8 +243,10 @@ describe("v1 → v2 migration via decodeV1Payload", () => {
     const scene0 = p.scenes[0];
     const back = decodeScene(encodeScene(scene0, 0), 0);
     ["kick", "snare", "hihat", "openhat"].forEach((key) => {
-      back.drums[key].forEach((v, i) => {
-        expect(v > 0).toBe((scene0.drums[key][i] ?? 0) > 0);
+      back.drums[key].forEach((step, i) => {
+        const hasHit = Boolean(step && step.length > 0);
+        const origHasHit = (scene0.drums[key][i] ?? 0) > 0;
+        expect(hasHit).toBe(origHasHit);
       });
     });
   });
@@ -262,8 +265,10 @@ describe("v1 → v2 migration via decodeV1Payload", () => {
       const token = encodeScene(scene, i);
       const back  = decodeScene(token, i);
       ["kick", "snare", "hihat", "openhat"].forEach((key) => {
-        back.drums[key].forEach((v, j) => {
-          expect(v > 0).toBe((scene.drums[key][j] ?? 0) > 0);
+        back.drums[key].forEach((step, j) => {
+          const hasHit = Boolean(step && step.length > 0);
+          const origHasHit = (scene.drums[key][j] ?? 0) > 0;
+          expect(hasHit).toBe(origHasHit);
         });
       });
     });
