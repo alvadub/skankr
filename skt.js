@@ -417,6 +417,11 @@ function encodeHeader(state) {
   else if (CHORD_STEPS !== 32) meta.push(String(CHORD_STEPS));
   tokens.push(meta.join("."));
 
+  const subdiv = state.subdiv || DEFAULT_SUBDIVISIONS.drums;
+  if (subdiv !== DEFAULT_SUBDIVISIONS.drums) {
+    tokens.push(`s${subdiv}`);
+  }
+
   const ds = TRACKS.map((t) => state.sounds?.drums?.[t.key] || "internal");
   const drumToken = ds.every((v) => v === ds[0]) ? ds[0] : ds.join("-");
   const rhythm    = state.sounds?.rhythm  || "organ";
@@ -467,6 +472,13 @@ function decodeHeader(token) {
       snapshot.bpm = Math.trunc(clampNumber(Number(fields[0]), 60, 200, 100));
       if (fields.length >= 3 && fields[2]) {
         try { snapshot.songTitle = base64UrlToUtf8(fields[2]).trim(); } catch {}
+      }
+      return;
+    }
+    if (part.startsWith("s")) {
+      const subdiv = part.slice(1);
+      if (isValidSubdivision(subdiv)) {
+        snapshot.subdiv = subdiv;
       }
       return;
     }

@@ -1007,7 +1007,21 @@ section meta → file-level meta → caller context (SKT header BPM / app state)
 
 ### 13.8 SKT URL encoding
 
-The scene token gains an optional `b` part for per-scene tempo and meter. Only emitted when the scene overrides the global default.
+The header gains an optional `s` token for subdivision. The scene token gains an optional `t` part for per-scene tempo and meter.
+
+**Header tokens:**
+
+| Token | Format | Example |
+|-------|--------|---------|
+| `t` | BPM[.STEPS][.TITLE] | `t120`, `t120.32.Title` |
+| `s` | subdivision | `s4n`, `s8n`, `s16n` |
+| `k` | rhythm.harmony.drums.bass | `korgan.pad.internal.sub` |
+| `m` | mix levels | `m80.55.35.75.65` |
+| `b` | bass settings | `b1.sub.2.420.4.22` |
+
+Subdivision token only emitted when different from default (`8n` for drums).
+
+**Scene token `t` part (per-scene tempo/meter):**
 
 ```
 tBPM           -- tempo only, meter inherited
@@ -1027,7 +1041,7 @@ BPM and meter are both optional, but at least one must be present.
 
 Detection in the scene decoder: `part.startsWith("t") && /^t(\d+)?(\/\d+\/\d+)?$/.test(part)` — with the constraint that the match is non-empty after `t`.
 
-Backward-compatible — decoders that don't recognize `b` ignore it.
+Backward-compatible — decoders that don't recognize `s` or `t` ignore them.
 
 ### 13.9 Open questions
 
