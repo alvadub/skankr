@@ -3276,10 +3276,12 @@ import { bindPatternInput, parseChordPattern, validateChordPattern, validateBass
             if (events) {
               currentScene().bass = events;
               savePreset();
+              renderBassRoll();
             }
           } else if (!notesInput.value.trim() || !patternInput.value.trim()) {
             currentScene().bass = [];
             savePreset();
+            renderBassRoll();
           }
           renderBassNotesPreview(notesPreview, notesInput.value, patternInput.value, 0, BASS_TICKS);
           renderBassEditorPreview(patternPreview, patternInput.value, 0, BASS_TICKS);
