@@ -252,13 +252,16 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
           scene.rhythm[4] = "C7";
           scene.rhythm[12] = "F7";
           scene.rhythm[20] = "G7";
+          scene.rhythm[4] = "C7";
+          scene.rhythm[12] = "F7";
+          scene.rhythm[20] = "G7";
           scene.rhythm[28] = "F7";
           scene.harmony[0] = "C";
           scene.harmony[16] = "F";
-          for (let step = 0; step < DRUM_STEPS; step += 4) scene.drums.kick[step] = 1;
-          [8, 24].forEach((step) => scene.drums.snare[step] = 1);
-          for (let step = 2; step < DRUM_STEPS; step += 4) scene.drums.hihat[step] = 1;
-          [15, 31].forEach((step) => scene.drums.openhat[step] = 1);
+          scene.drums.kick = [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0];
+          scene.drums.snare = [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0];
+          scene.drums.hihat = [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0];
+          scene.drums.openhat = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,1];
           scene.bass = [
             {tick: 0, midi: 36, length: 4},
             {tick: 4, midi: 36, length: 4},
@@ -272,12 +275,12 @@ import { bindPatternInput, parseChordPattern, chordPatternStats, chordPatternSym
         }
 
         scene.chordPoolText = {
-          rhythm: chordPoolTextState(scene.rhythm, null, CHORD_EDITOR_PARTS, formatChordPoolPart, CHORD_EDITOR_PART_STEPS),
-          harmony: chordPoolTextState(scene.harmony, null, CHORD_EDITOR_PARTS, formatChordPoolPart, CHORD_EDITOR_PART_STEPS),
+          rhythm: ["C7 F7", "G7 F7"],
+          harmony: ["C F", "C F"],
         };
         scene.chordPatternText = {
-          rhythm: ["[x-x-]---- [x-x-]----", "[x-x-]---- [x-x-]----"],
-          harmony: ["x___ ____ [x_]__ ____", "x___ ____ ____ ____"],
+          rhythm: ["[x-]-- [x-]--", "[x-]-- [x-]--"],
+          harmony: ["x___ ____ [x_]__ ____", "x___ ____ x___ ____"],
         };
         scene.bassText = {
           notes: "c2 c2 c2 c2 f2 g2 d2",
